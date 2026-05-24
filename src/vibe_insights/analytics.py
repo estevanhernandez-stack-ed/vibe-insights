@@ -114,8 +114,47 @@ def by_machine(sessions: list[dict]) -> list[dict]:
     return out
 
 
-def pick_back_up(sessions: list[dict], limit: int = 15) -> list[dict]:
-    feat = [s for s in sessions if (s.get("branch") or "") not in _FEATURE_EXCLUDE]
+_VERY_OLD_DAYS = 10**6
+
+_RESUME_KEYWORDS = (
+    "continue", "complete", "finish", "wip", "smoke", "fix", "todo",
+    "left off", "pick up",
+)
+
+
+def _age_days(last_ts) -> int:
+    """Days since last_ts vs tz-aware now; unparseable/missing -> very old."""
+    ts = _parse(last_ts)
+    if ts is None:
+        return _VERY_OLD_DAYS
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - ts).days
+
+
+def _enrich_branch(s: dict) -> dict:
+    """Per-branch record: existing fields + deterministic open-thread signals."""
+    title = s.get("title", "") or ""
+    age = _age_days(s.get("last_ts"))
+    empty_title = not title.strip()
+    lower = title.lower()
+    resume_signal = any(kw in lower for kw in _RESUME_KEYWORDS)
+    recency = max(0, 3 - age // 7)
+    score = (3 if resume_signal else 0) + (2 if empty_title else 0) + recency
+    return {
+        "repo": s.get("repo", ""), "branch": s.get("branch", ""),
+        "machine": s.get("machine", ""), "title": title,
+        "last_ts": s.get("last_ts", ""),
+        "age_days": age, "empty_title": empty_title,
+        "resume_signal": resume_signal, "unfinished_score": score,
+    }
+
+
+def _feature_branches(sessions: list[dict]) -> list[dict]:
+    """Unique (repo, branch, machine) feature branches, most-recent session wins,
+    each enriched with open-thread signals."""
+    feat = [s for s in sessions
+            if (s.get("branch") or "") not in _FEATURE_EXCLUDE]
     feat.sort(key=lambda s: s.get("last_ts") or "", reverse=True)
     out: list[dict] = []
     seen: set = set()
@@ -124,14 +163,27 @@ def pick_back_up(sessions: list[dict], limit: int = 15) -> list[dict]:
         if key in seen:
             continue
         seen.add(key)
-        out.append({
-            "repo": s.get("repo", ""), "branch": s.get("branch", ""),
-            "machine": s.get("machine", ""), "title": s.get("title", ""),
-            "last_ts": s.get("last_ts", ""),
-        })
-        if len(out) >= limit:
-            break
+        out.append(_enrich_branch(s))
     return out
+
+
+def _is_prune(rec: dict) -> bool:
+    return (rec["age_days"] >= 21
+            and not rec["resume_signal"]
+            and not rec["empty_title"])
+
+
+def pick_back_up(sessions: list[dict], limit: int = 15) -> list[dict]:
+    branches = [b for b in _feature_branches(sessions) if not _is_prune(b)]
+    branches.sort(key=lambda b: (b["unfinished_score"], b["last_ts"] or ""),
+                  reverse=True)
+    return branches[:limit]
+
+
+def prune_candidates(sessions: list[dict]) -> list[dict]:
+    branches = [b for b in _feature_branches(sessions) if _is_prune(b)]
+    branches.sort(key=lambda b: b["last_ts"] or "", reverse=True)
+    return branches
 
 
 _EXT_LANG = {

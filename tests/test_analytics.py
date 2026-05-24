@@ -1,4 +1,11 @@
+from datetime import datetime, timedelta, timezone
+
 from vibe_insights import analytics
+
+
+def _ts_days_ago(n: int) -> str:
+    """ISO timestamp n days before real now (tz-aware) — stable vs analytics' now."""
+    return (datetime.now(timezone.utc) - timedelta(days=n)).isoformat()
 
 
 def _s(**kw):
@@ -235,3 +242,152 @@ def test_by_machine_distinct_repos_ignores_empty():
 
 def test_by_machine_empty_input():
     assert analytics.by_machine([]) == []
+
+
+# --- Item 4: pick_back_up rework + prune_candidates --------------------------
+
+def test_pick_back_up_back_compat_fields_present():
+    sessions = [_s(repo="A", branch="feat/x", machine="m", title="wip thing",
+                   last_ts=_ts_days_ago(2))]
+    pb = analytics.pick_back_up(sessions)
+    assert len(pb) == 1
+    rec = pb[0]
+    # existing fields preserved
+    for k in ("repo", "branch", "machine", "title", "last_ts"):
+        assert k in rec
+    # new fields added
+    for k in ("age_days", "empty_title", "resume_signal", "unfinished_score"):
+        assert k in rec
+    assert rec["repo"] == "A" and rec["branch"] == "feat/x"
+
+
+def test_pick_back_up_score_resume_signal():
+    # title with resume keyword, recent (<7d) -> resume(3) + recency(3) = 6
+    s = _s(repo="A", branch="feat/x", title="continue the refactor",
+           last_ts=_ts_days_ago(1))
+    rec = analytics.pick_back_up([s])[0]
+    assert rec["resume_signal"] is True
+    assert rec["empty_title"] is False
+    assert rec["age_days"] == 1
+    assert rec["unfinished_score"] == 6   # 3 resume + 3 recency
+
+
+def test_pick_back_up_score_empty_title():
+    # empty title, recent (<7d) -> empty(2) + recency(3) = 5, no resume
+    s = _s(repo="A", branch="feat/x", title="   ", last_ts=_ts_days_ago(3))
+    rec = analytics.pick_back_up([s])[0]
+    assert rec["empty_title"] is True
+    assert rec["resume_signal"] is False
+    assert rec["unfinished_score"] == 5   # 2 empty + 3 recency
+
+
+def test_pick_back_up_recency_buckets():
+    # recency = max(0, 3 - age_days // 7): 3 (<7d), 2 (<14d), 1 (<21d)
+    # use a plain non-resume, non-empty title so score == recency
+    def score(days):
+        s = _s(repo="A", branch="feat/x", title="ship it", last_ts=_ts_days_ago(days))
+        return analytics.pick_back_up([s])[0]["unfinished_score"]
+    assert score(3) == 3
+    assert score(10) == 2
+    assert score(17) == 1
+
+
+def test_pick_back_up_sort_by_score_then_recency():
+    sessions = [
+        # high score: resume + recent
+        _s(repo="A", branch="feat/hi", title="finish the wip", last_ts=_ts_days_ago(1)),
+        # mid score: plain recent (recency 3)
+        _s(repo="B", branch="feat/mid", title="ship it", last_ts=_ts_days_ago(2)),
+        # lower score: plain, 10d old (recency 2)
+        _s(repo="C", branch="feat/lo", title="ship it", last_ts=_ts_days_ago(10)),
+    ]
+    pb = analytics.pick_back_up(sessions)
+    assert [r["branch"] for r in pb] == ["feat/hi", "feat/mid", "feat/lo"]
+
+
+def test_pick_back_up_dedupe_newest_wins():
+    sessions = [
+        _s(repo="A", branch="feat/x", title="newer", last_ts=_ts_days_ago(1)),
+        _s(repo="A", branch="feat/x", title="older", last_ts=_ts_days_ago(9)),
+    ]
+    pb = analytics.pick_back_up(sessions)
+    assert len(pb) == 1
+    assert pb[0]["title"] == "newer"
+    assert pb[0]["age_days"] == 1
+
+
+def test_pick_back_up_excludes_prune_candidates():
+    # old (>=21d), no resume keyword, non-empty title -> score 0 -> prune, not pick
+    sessions = [
+        _s(repo="A", branch="feat/old", title="shipped already", last_ts=_ts_days_ago(40)),
+        _s(repo="B", branch="feat/live", title="wip", last_ts=_ts_days_ago(2)),
+    ]
+    pb = analytics.pick_back_up(sessions)
+    assert [r["branch"] for r in pb] == ["feat/live"]
+
+
+def test_prune_candidates_inclusion_rule():
+    sessions = [
+        # prune: old, no resume, non-empty title
+        _s(repo="A", branch="feat/old", title="done deal", last_ts=_ts_days_ago(40)),
+        # NOT prune: old but has resume keyword
+        _s(repo="B", branch="feat/wip", title="wip cleanup", last_ts=_ts_days_ago(40)),
+        # NOT prune: old but empty title
+        _s(repo="C", branch="feat/empty", title="", last_ts=_ts_days_ago(40)),
+        # NOT prune: recent
+        _s(repo="D", branch="feat/new", title="ship it", last_ts=_ts_days_ago(2)),
+    ]
+    pc = analytics.prune_candidates(sessions)
+    assert [r["branch"] for r in pc] == ["feat/old"]
+    # prune records carry the signal fields too
+    assert pc[0]["unfinished_score"] == 0
+    assert pc[0]["resume_signal"] is False
+    assert pc[0]["empty_title"] is False
+
+
+def test_prune_and_pick_mutual_exclusion_invariant():
+    # The invariant: a branch is a prune candidate IFF unfinished_score == 0,
+    # and the two lists never overlap.
+    sessions = [
+        _s(repo="A", branch="feat/old", title="done deal", last_ts=_ts_days_ago(40)),
+        _s(repo="B", branch="feat/wip", title="wip cleanup", last_ts=_ts_days_ago(40)),
+        _s(repo="C", branch="feat/empty", title="", last_ts=_ts_days_ago(40)),
+        _s(repo="D", branch="feat/new", title="ship it", last_ts=_ts_days_ago(2)),
+        _s(repo="E", branch="main", title="ignored", last_ts=_ts_days_ago(1)),
+    ]
+    pb = analytics.pick_back_up(sessions)
+    pc = analytics.prune_candidates(sessions)
+    pb_keys = {(r["repo"], r["branch"], r["machine"]) for r in pb}
+    pc_keys = {(r["repo"], r["branch"], r["machine"]) for r in pc}
+    # no overlap
+    assert pb_keys & pc_keys == set()
+    # every prune candidate has score 0
+    assert all(r["unfinished_score"] == 0 for r in pc)
+    # every pick has score >= 1
+    assert all(r["unfinished_score"] >= 1 for r in pb)
+    # union covers all feature branches (main excluded)
+    assert pb_keys | pc_keys == {
+        ("A", "feat/old", "m"), ("B", "feat/wip", "m"),
+        ("C", "feat/empty", "m"), ("D", "feat/new", "m"),
+    }
+
+
+def test_pick_back_up_unparseable_last_ts_is_old():
+    # unparseable last_ts -> treated as very old -> recency 0; non-resume, non-empty
+    # -> score 0 -> prune candidate, excluded from pick_back_up
+    sessions = [_s(repo="A", branch="feat/x", title="ship it", last_ts="not-a-date")]
+    pb = analytics.pick_back_up(sessions)
+    pc = analytics.prune_candidates(sessions)
+    assert pb == []
+    assert len(pc) == 1
+    assert pc[0]["age_days"] >= 10**6
+    assert pc[0]["unfinished_score"] == 0
+
+
+def test_pick_back_up_missing_last_ts_is_old_but_resume_kept():
+    # missing last_ts (very old) but resume keyword -> score 3 -> stays in pick
+    sessions = [_s(repo="A", branch="feat/x", title="finish this", last_ts="")]
+    pb = analytics.pick_back_up(sessions)
+    assert len(pb) == 1
+    assert pb[0]["resume_signal"] is True
+    assert pb[0]["unfinished_score"] == 3   # resume only, recency 0
