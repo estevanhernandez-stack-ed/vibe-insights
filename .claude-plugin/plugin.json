@@ -1,0 +1,22 @@
+{
+  "name": "vibe-insights",
+  "version": "0.1.0",
+  "description": "Vibe Insights — cross-machine, work-walled Claude Code session analytics. Coverage, where-was-I recall, token/cost (incl. the cache reveal), trends, decisions, languages, per-session friction/satisfaction/outcome, and a native-grade narrative read. MCP-agnostic decisions overlay.",
+  "author": {
+    "name": "626Labs LLC",
+    "url": "https://github.com/estevanhernandez-stack-ed"
+  },
+  "homepage": "https://github.com/estevanhernandez-stack-ed/vibe-insights#readme",
+  "repository": "https://github.com/estevanhernandez-stack-ed/vibe-insights",
+  "license": "MIT",
+  "keywords": [
+    "vibe-insights",
+    "claude-code-plugin",
+    "insights",
+    "analytics",
+    "token-usage",
+    "session-recall",
+    "cross-machine",
+    "626labs"
+  ]
+}

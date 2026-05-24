@@ -1,0 +1,8 @@
+{
+  "machine": "my-machine",
+  "dataDir": "~/.vibe-insights",
+  "homes": [
+    { "path": "~/.claude", "account": "work", "walled": true },
+    { "path": "~/.claude-personal", "account": "personal", "walled": false }
+  ]
+}

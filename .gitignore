@@ -1,0 +1,23 @@
+# vibe-insights — generated + machine-specific, never tracked
+
+# Topology config carries machine-specific absolute paths (root only —
+# do NOT ignore .vibe-iterate/config.json, which is shared iteration state)
+/config.json
+
+# vibe-iterate: commit config + atlas; ignore the regenerable radar cache
+.vibe-iterate/radar.cache.json
+
+# Generated session indexes (regenerated each run)
+index.json
+# WORK SHARD — employer (Marcus) data. Never tracked, never synced.
+index.work.local.json
+
+# Generated reports
+/reports/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/

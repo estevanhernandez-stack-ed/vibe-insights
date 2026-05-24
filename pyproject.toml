@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vibe-insights"
+version = "0.1.0"
+description = "Cross-home, cross-machine retrospective insights for Claude Code sessions."
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "626Labs" }]
+dependencies = []
+
+[project.scripts]
+vibe-insights = "vibe_insights.cli:main"
+
+[project.optional-dependencies]
+# Optional. Share the exact token/parse definitions with other tools
+# (e.g. Sanduhr) so burn numbers stay aligned. vibe-insights runs fully
+# standalone without this; scan.py prefers cc-logs only when present.
+shared = ["cc-logs @ git+https://github.com/estevanhernandez-stack-ed/cc-logs"]
+
+[project.urls]
+Homepage = "https://github.com/estevanhernandez-stack-ed/vibe-insights"
+Repository = "https://github.com/estevanhernandez-stack-ed/vibe-insights"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
