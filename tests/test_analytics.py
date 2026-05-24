@@ -63,6 +63,28 @@ def test_build_digest_shape():
     assert set(d) >= {"generated_at", "token_cost", "trends", "pick_back_up"}
 
 
+def test_build_digest_includes_phase2_keys():
+    d = analytics.build_digest([
+        _s(human_tokens=5, tool_counts={"Bash": 3, "Agent": 1}, web_search=1,
+           models=["claude-haiku-4-5"], assistant_msgs=4, machine="m1",
+           branch="feat/x", title="wip", last_ts=_ts_days_ago(2)),
+    ])
+    # new keys present
+    for k in ("tool_mix", "delegation", "by_machine", "prune_candidates"):
+        assert k in d
+    # existing keys still present and untouched in shape
+    for k in ("generated_at", "token_cost", "trends", "pick_back_up",
+              "languages", "tool_errors", "parallel", "tags",
+              "response_dist", "glance"):
+        assert k in d
+    # spot-check the new aggregates are populated, not placeholders
+    assert d["tool_mix"]["tools"][0]["tool"] == "Bash"
+    assert d["delegation"]["agent_calls"] == 1
+    assert d["delegation"]["haiku_sessions"] == 1
+    assert d["by_machine"][0]["machine"] == "m1"
+    assert isinstance(d["prune_candidates"], list)
+
+
 def test_languages_aggregates_and_maps():
     sessions = [{"file_exts": {"py": 3, "ts": 1}}, {"file_exts": {"py": 2, "md": 5}}]
     langs = analytics.languages(sessions)
