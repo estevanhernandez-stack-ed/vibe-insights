@@ -1,4 +1,5 @@
 """Phase-2 analytics: deterministic lenses over the merged personal session set."""
+import re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
@@ -116,9 +117,16 @@ def by_machine(sessions: list[dict]) -> list[dict]:
 
 _VERY_OLD_DAYS = 10**6
 
+# Strong unfinished-intent keywords. Curated (Iteration 1): 'fix' and 'complete'
+# are too common/ambiguous to signal "pick this back up", so they're dropped.
 _RESUME_KEYWORDS = (
-    "continue", "complete", "finish", "wip", "smoke", "fix", "todo",
-    "left off", "pick up",
+    "continue", "wip", "todo", "finish", "incomplete", "unfinished",
+    "in progress", "left off", "pick up", "smoke", "draft",
+)
+# Word-boundary match so 'smoker'/'finished'/'prefix' don't false-fire as resume.
+_RESUME_RE = re.compile(
+    r"\b(?:" + "|".join(re.escape(kw) for kw in _RESUME_KEYWORDS) + r")\b",
+    re.IGNORECASE,
 )
 
 
@@ -137,8 +145,7 @@ def _enrich_branch(s: dict) -> dict:
     title = s.get("title", "") or ""
     age = _age_days(s.get("last_ts"))
     empty_title = not title.strip()
-    lower = title.lower()
-    resume_signal = any(kw in lower for kw in _RESUME_KEYWORDS)
+    resume_signal = bool(_RESUME_RE.search(title))
     recency = max(0, 3 - age // 7)
     score = (3 if resume_signal else 0) + (2 if empty_title else 0) + recency
     return {

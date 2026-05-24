@@ -69,3 +69,33 @@
 ## Sequencing rationale
 
 Items 1-4 are independent aggregators built test-first; 4 also carries the shared scoring helper for prune. Item 5 wires them into the digest (depends on 1-4) — the analytics checkpoint. Item 6 renders over the digest keys (depends on 5). Item 7 updates the narrative contract (depends on the keys existing). Item 8 is the always-final doc/security gate, plus the real-index validation that proves the prototype's read is now automatic.
+
+## Iteration 1 — resume-keyword tune-up
+
+Polish pass after v0.2.0 shipped. Real-index validation showed `resume_signal`
+fired on nearly every branch (substring match including the over-common `fix`),
+so `prune_candidates` never surfaced. Make the signal meaningful.
+
+- [x] **I1.1 Two-tier word-boundary resume keywords (TDD)**
+  Spec ref: `design.md > Lens 3` (refines the `resume_signal` definition)
+  What to build: Replace the flat substring `_RESUME_KEYWORDS` with a curated
+  strong-intent set — `continue, wip, todo, finish, incomplete, unfinished,
+  "in progress", "left off", "pick up", smoke, draft` — matched on word
+  boundaries (compiled `\b(...)\b` regex, case-insensitive). Drop `fix` and
+  `complete` (too common / ambiguous). Update `_enrich_branch` to use the regex.
+  Tests first.
+  Acceptance: `fix`-only and `complete`-only titles no longer set `resume_signal`;
+  `continue/wip/smoke/"in progress"/"left off"/"pick up"/draft` do; word-boundary
+  false-positives excluded (`prefix`, `fixture`, `smoker`, `finished`); `unfinished`
+  matches. Existing score/prune tests updated to the new keyword semantics; full
+  suite green.
+  Verify: `python -m pytest -q` all green.
+
+- [x] **I1.2 Real-index re-validation** — ranking now leads with real resume threads (continue/smoke); `prune_candidates` correctly 0 (no feature branch is ≥21d in the current index; oldest is 20d). Invariant holds on real data.
+  Spec ref: `design.md > Validation`
+  What to build: Run the engine against the live personal index; confirm
+  `prune_candidates` now surfaces stale no-signal branches and `pick_back_up`
+  still leads with the genuine resume threads (continue/wip/smoke), and the
+  score==0 ⟺ prune invariant still holds on real data.
+  Verify: validation output shows non-trivial prune set (if stale branches exist)
+  and a sane ranking; invariant assertion passes.

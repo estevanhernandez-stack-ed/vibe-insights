@@ -413,3 +413,38 @@ def test_pick_back_up_missing_last_ts_is_old_but_resume_kept():
     assert len(pb) == 1
     assert pb[0]["resume_signal"] is True
     assert pb[0]["unfinished_score"] == 3   # resume only, recency 0
+
+
+def _resume(title):
+    """resume_signal for a title on a recent (never-pruned) branch."""
+    rec = analytics.pick_back_up(
+        [_s(repo="A", branch="feat/x", title=title, last_ts=_ts_days_ago(1))])
+    return rec[0]["resume_signal"]
+
+
+def test_resume_keywords_curated_drops_fix_and_complete():
+    # Iteration 1: 'fix' and 'complete' are too common/ambiguous -> dropped
+    assert _resume("Fix the launcher bug") is False
+    assert _resume("complete rewrite of the parser") is False
+
+
+def test_resume_keywords_word_boundary_no_substring_false_positives():
+    assert _resume("prefix cleanup") is False
+    assert _resume("add fixture data") is False
+    assert _resume("smoker test rig") is False        # 'smoke' is not a word here
+    assert _resume("finished the migration") is False  # done, not unfinished
+
+
+def test_resume_keywords_strong_intent_match():
+    assert _resume("Continue the refactor") is True
+    assert _resume("WIP: auth flow") is True
+    assert _resume("smoke test the build") is True
+    assert _resume("unfinished business") is True
+    assert _resume("draft of the API") is True
+    assert _resume("TODO wire the webhook") is True
+
+
+def test_resume_keywords_multiword_phrases():
+    assert _resume("left off at the parser") is True
+    assert _resume("pick up the migration") is True
+    assert _resume("still in progress") is True
