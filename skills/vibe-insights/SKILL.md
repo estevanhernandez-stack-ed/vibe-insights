@@ -44,8 +44,17 @@ summarize (output-ceiling discipline).
    — name the gravity-well repo (top of `token_cost.top_repos_by_burn`), the
    acceleration (`trends.acceleration_multiple`), the cache story
    (`token_cost.cache_read` vs `input`, `cache_read_share`), the output-heaviness
-   (`output_share`), and the top 1–2 `pick_back_up` threads. Punchline-first,
-   specific numbers, no hedging. Don't restate the tables — read what they *mean*.
+   (`output_share`), the build-debug loop shape (`tool_mix.tools` — the lead tools,
+   in order), the delegation habit (`delegation.agent_calls` Agent calls +
+   `delegation.haiku_sessions` sessions touching Haiku), the workhorse machine
+   (`by_machine` — which box carries the work and by how much; the ratio of the
+   top-two `assistant_msgs`), and the open threads. For the threads, **reason over
+   the computed `pick_back_up[].unfinished_score`** (highest = most likely genuinely
+   unfinished — name the top 1–2) and **call out `prune_candidates`** as the
+   shipped-or-abandoned set worth a prune pass. Don't re-derive "looks unfinished"
+   from titles by hand — the engine already scored it; explain the score.
+   Punchline-first, specific numbers, no hedging. Don't restate the tables — read
+   what they *mean*.
 
    Write it as a **trusted HTML fragment** to `~/.vibe-insights/reports/narrative.html`
    using only `<h2>/<h3>/<p>/<strong>/<ol>/<li>/<code>` (it's styled by the report's

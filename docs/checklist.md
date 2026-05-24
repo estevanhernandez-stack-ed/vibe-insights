@@ -18,43 +18,43 @@
 
 ## Checklist
 
-- [ ] **1. `tool_mix` aggregator (TDD)**
+- [x] **1. `tool_mix` aggregator (TDD)**
   Spec ref: `design.md > Lens 1 > tool_mix(sessions)`
   What to build: Add `tool_mix(sessions)` to `analytics.py` — sum each session's `tool_counts` into a ranked `tools` list (top 12, desc), plus `web_search` / `web_fetch` totals. Mirror the `languages()` shape and cap. Write the tests first.
   Acceptance: Tests cover ranking order, top-12 cap, web-tool sums, and empty input. Returns the documented dict shape.
   Verify: `pytest tests/test_analytics.py -k tool_mix` passes.
 
-- [ ] **2. `delegation` aggregator (TDD)**
+- [x] **2. `delegation` aggregator (TDD)**
   Spec ref: `design.md > Lens 1 > delegation(sessions)`
   What to build: Add `delegation(sessions)` — `agent_calls` = sum of `tool_counts["Agent"]`; `haiku_sessions` = count of sessions where any `models` string contains "haiku" (case-insensitive). Tests first.
   Acceptance: Tests cover Agent-call sum, Haiku count with case-insensitivity, multi-model sessions, and no-model sessions.
   Verify: `pytest tests/test_analytics.py -k delegation` passes.
 
-- [ ] **3. `by_machine` aggregator (TDD)**
+- [x] **3. `by_machine` aggregator (TDD)**
   Spec ref: `design.md > Lens 1 > by_machine(sessions)`
   What to build: Add `by_machine(sessions)` — group by `machine` only into `{machine, sessions, assistant_msgs, burn, repos}`, sorted by `assistant_msgs` desc. `burn` uses `human_tokens`; `repos` is distinct-repo count. Tests first.
   Acceptance: Tests cover grouping, `assistant_msgs` rollup, sort order, distinct-repo count, single-machine case.
   Verify: `pytest tests/test_analytics.py -k by_machine` passes.
 
-- [ ] **4. `pick_back_up` rework + `prune_candidates` (TDD)**
+- [x] **4. `pick_back_up` rework + `prune_candidates` (TDD)**
   Spec ref: `design.md > Lens 3 > rework pick_back_up`
   What to build: Extend `pick_back_up` so each record carries `age_days`, `empty_title`, `resume_signal`, `unfinished_score` (`resume+3, empty_title+2, recency=max(0, 3 - age_days//7)`). Exclude prune candidates and sort by `unfinished_score` desc then `last_ts` desc. Add `prune_candidates(sessions)` (or shared helper) for `age_days >= 21 AND not resume_signal AND not empty_title`. Preserve existing fields (`repo, branch, machine, title, last_ts`) for back-compat. Tests first.
   Acceptance: Tests cover per-signal scoring, sort-by-score, dedupe by `(repo, branch, machine)`, back-compat fields present, prune inclusion rule, mutual exclusion (score 0 ⟺ prune), and unparseable-`last_ts` handling.
   Verify: `pytest tests/test_analytics.py -k "pick_back_up or prune"` passes.
 
-- [ ] **5. Wire new keys into `build_digest`**
+- [x] **5. Wire new keys into `build_digest`**
   Spec ref: `design.md > Digest assembly (build_digest)`
   What to build: Add `tool_mix`, `delegation`, `by_machine`, and `prune_candidates` to the dict returned by `build_digest`. Leave existing keys and `at_a_glance` untouched.
   Acceptance: Test asserts all four new keys present in `build_digest` output and existing keys unchanged.
   Verify: `pytest tests/test_analytics.py` fully green. **Checkpoint:** analytics layer complete.
 
-- [ ] **6. Render both lenses — Markdown + HTML (`report.py`)**
+- [x] **6. Render both lenses — Markdown + HTML (`report.py`)**
   Spec ref: `design.md > Rendering (report.py)`
   What to build: Add a "How you work" section (md `_md_how_you_work` + branded HTML card): tool-mix table/bars, delegation line/tiles, per-machine comparison table. Enrich `_md_pick_back_up` and its HTML card with `Age` + `Score` columns and an appended "Prune candidates" table (omit when empty). Reuse existing CSS vocabulary (`.card/.kick/.tiles/.tile/.bars/tbl()`).
   Acceptance: Smoke test in `tests/test_report.py` — when the digest carries the new keys, the rendered md/html contain the new sections; empty prune list omits the table cleanly.
   Verify: `pytest tests/test_report.py` passes; eyeball `reports/insights.html` from a real run.
 
-- [ ] **7. Update SKILL narrative grounding**
+- [x] **7. Update SKILL narrative grounding**
   Spec ref: `design.md > SKILL (skills/vibe-insights/SKILL.md)`
   What to build: Extend SKILL step 4's grounding list with `tool_mix.tools`, `delegation.*`, `by_machine` (workhorse ratio of top-two `assistant_msgs`), and `pick_back_up[].unfinished_score` + `prune_candidates`. Narrative reasons over the computed score; it does not re-derive "looks unfinished."
   Acceptance: SKILL step 4 names every new digest field. No engine logic moved into the SKILL.
