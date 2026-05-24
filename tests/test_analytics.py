@@ -113,3 +113,42 @@ def test_response_distribution():
     sessions = [{"response_buckets": {"<1m": 3, "1-5m": 1}}, {"response_buckets": {"<1m": 2, ">30m": 1}}]
     rd = analytics.response_distribution(sessions)
     assert rd["<1m"] == 5 and rd["1-5m"] == 1 and rd[">30m"] == 1
+
+
+# --- Item 1: tool_mix --------------------------------------------------------
+
+def test_tool_mix_sums_and_ranks():
+    sessions = [
+        _s(tool_counts={"Bash": 5, "Read": 2}, web_search=1, web_fetch=0),
+        _s(tool_counts={"Bash": 3, "Read": 4, "Edit": 1}, web_search=2, web_fetch=3),
+    ]
+    tm = analytics.tool_mix(sessions)
+    tools = tm["tools"]
+    # ranked desc by count: Read 6, Bash 8 -> wait Bash=8, Read=6, Edit=1
+    assert tools[0] == {"tool": "Bash", "count": 8}
+    assert tools[1] == {"tool": "Read", "count": 6}
+    assert tools[2] == {"tool": "Edit", "count": 1}
+    assert tm["web_search"] == 3
+    assert tm["web_fetch"] == 3
+
+
+def test_tool_mix_top_12_cap():
+    # 15 distinct tools -> only top 12 returned
+    counts = {f"Tool{i:02d}": (20 - i) for i in range(15)}
+    tm = analytics.tool_mix([_s(tool_counts=counts)])
+    assert len(tm["tools"]) == 12
+    # highest count first
+    assert tm["tools"][0] == {"tool": "Tool00", "count": 20}
+    # the 12th is Tool11 (count 9); Tool12..14 dropped
+    assert tm["tools"][-1] == {"tool": "Tool11", "count": 9}
+
+
+def test_tool_mix_empty_input():
+    tm = analytics.tool_mix([])
+    assert tm == {"tools": [], "web_search": 0, "web_fetch": 0}
+
+
+def test_tool_mix_handles_missing_fields():
+    tm = analytics.tool_mix([_s()])
+    assert tm["tools"] == []
+    assert tm["web_search"] == 0 and tm["web_fetch"] == 0

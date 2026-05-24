@@ -71,6 +71,19 @@ def trends(sessions: list[dict]) -> dict:
     }
 
 
+def tool_mix(sessions: list[dict]) -> dict:
+    counts: Counter = Counter()
+    for s in sessions:
+        for tool, n in (s.get("tool_counts") or {}).items():
+            counts[tool] += int(n or 0)
+    tools = [{"tool": t, "count": c} for t, c in counts.most_common(12)]
+    return {
+        "tools": tools,
+        "web_search": sum(int(s.get("web_search") or 0) for s in sessions),
+        "web_fetch": sum(int(s.get("web_fetch") or 0) for s in sessions),
+    }
+
+
 def pick_back_up(sessions: list[dict], limit: int = 15) -> list[dict]:
     feat = [s for s in sessions if (s.get("branch") or "") not in _FEATURE_EXCLUDE]
     feat.sort(key=lambda s: s.get("last_ts") or "", reverse=True)
