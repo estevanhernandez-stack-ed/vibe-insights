@@ -190,3 +190,48 @@ def test_delegation_no_model_sessions():
     sessions = [_s(models=[]), _s()]  # _s default models=[]
     d = analytics.delegation(sessions)
     assert d == {"agent_calls": 0, "haiku_sessions": 0}
+
+
+# --- Item 3: by_machine ------------------------------------------------------
+
+def test_by_machine_groups_and_rolls_up():
+    sessions = [
+        _s(machine="neb", assistant_msgs=100, human_tokens=500, repo="A"),
+        _s(machine="neb", assistant_msgs=200, human_tokens=300, repo="B"),
+        _s(machine="neb", assistant_msgs=50, human_tokens=100, repo="A"),  # dup repo
+        _s(machine="dun", assistant_msgs=70, human_tokens=900, repo="C"),
+    ]
+    bm = analytics.by_machine(sessions)
+    # sorted by assistant_msgs desc -> neb (350) before dun (70)
+    assert [m["machine"] for m in bm] == ["neb", "dun"]
+    neb = bm[0]
+    assert neb["sessions"] == 3
+    assert neb["assistant_msgs"] == 350
+    assert neb["burn"] == 900            # 500 + 300 + 100
+    assert neb["repos"] == 2             # A, B distinct
+    dun = bm[1]
+    assert dun["sessions"] == 1
+    assert dun["assistant_msgs"] == 70
+    assert dun["burn"] == 900
+    assert dun["repos"] == 1
+
+
+def test_by_machine_single_machine():
+    bm = analytics.by_machine([_s(machine="solo", assistant_msgs=5, human_tokens=10, repo="R")])
+    assert len(bm) == 1
+    assert bm[0] == {"machine": "solo", "sessions": 1, "assistant_msgs": 5,
+                     "burn": 10, "repos": 1}
+
+
+def test_by_machine_distinct_repos_ignores_empty():
+    sessions = [
+        _s(machine="m", repo="A", assistant_msgs=1, human_tokens=0),
+        _s(machine="m", repo="", assistant_msgs=1, human_tokens=0),
+        _s(machine="m", repo="A", assistant_msgs=1, human_tokens=0),
+    ]
+    bm = analytics.by_machine(sessions)
+    assert bm[0]["repos"] == 1   # only "A"; empty repo not counted
+
+
+def test_by_machine_empty_input():
+    assert analytics.by_machine([]) == []

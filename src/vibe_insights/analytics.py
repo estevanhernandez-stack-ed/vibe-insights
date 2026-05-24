@@ -94,6 +94,26 @@ def delegation(sessions: list[dict]) -> dict:
     return {"agent_calls": agent_calls, "haiku_sessions": haiku_sessions}
 
 
+def by_machine(sessions: list[dict]) -> list[dict]:
+    agg: dict = defaultdict(lambda: {"sessions": 0, "assistant_msgs": 0,
+                                     "burn": 0, "repos": set()})
+    for s in sessions:
+        m = s.get("machine") or ""
+        row = agg[m]
+        row["sessions"] += 1
+        row["assistant_msgs"] += int(s.get("assistant_msgs") or 0)
+        row["burn"] += int(s.get("human_tokens") or 0)
+        repo = s.get("repo") or ""
+        if repo:
+            row["repos"].add(repo)
+    out = [{"machine": m, "sessions": r["sessions"],
+            "assistant_msgs": r["assistant_msgs"], "burn": r["burn"],
+            "repos": len(r["repos"])}
+           for m, r in agg.items()]
+    out.sort(key=lambda r: -r["assistant_msgs"])
+    return out
+
+
 def pick_back_up(sessions: list[dict], limit: int = 15) -> list[dict]:
     feat = [s for s in sessions if (s.get("branch") or "") not in _FEATURE_EXCLUDE]
     feat.sort(key=lambda s: s.get("last_ts") or "", reverse=True)
