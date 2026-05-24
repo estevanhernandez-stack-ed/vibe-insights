@@ -99,3 +99,31 @@ so `prune_candidates` never surfaced. Make the signal meaningful.
   score==0 ⟺ prune invariant still holds on real data.
   Verify: validation output shows non-trivial prune set (if stale branches exist)
   and a sane ranking; invariant assertion passes.
+
+## Iteration 2 — wire the Web line
+
+The "Web" line read 0/0. Root cause (verified): `scan.py` populates
+`web_search`/`web_fetch` only from `usage.server_tool_use` (the Anthropic API
+server-side web tool), which is 0 in normal Claude Code use. The real web
+activity is the **client-side** `WebSearch`/`WebFetch` tools — confirmed present
+in the live index (sessions run 1-9 searches; work shard up to 56) but only
+counted in `tool_counts`, never mirrored to the dedicated fields.
+
+- [x] **I2.1 Count client web tools into the web fields (TDD)**
+  Spec ref: `scan.py > ingest_event` (assistant tool_use loop)
+  What to build: In `ingest_event`'s `tool_use` loop, increment `rec.web_search`
+  for `name == "WebSearch"` and `rec.web_fetch` for `name == "WebFetch"`, on top
+  of the existing `server_tool_use` accounting. The fields become *total* web
+  activity (client + the ~0 server); the tools stay in `tool_counts` too (the
+  ranking view). Tests first.
+  Acceptance: an assistant event with WebSearch/WebFetch tool_use blocks folds
+  into `web_search`/`web_fetch` AND `tool_counts`; the existing server_tool_use
+  test still passes; combined client+server sums correctly. Full suite green.
+  Verify: `python -m pytest -q` all green.
+
+- [x] **I2.2 Real-index re-validation** — re-scan surfaced web_search=322 / web_fetch=306 on this machine's personal shard (was 0/0). Fix confirmed on real data.
+  Spec ref: `design.md > Validation`
+  What to build: Re-scan the live index (the engine re-scans every run) and
+  confirm the "Web" line now reports non-zero search/fetch totals matching the
+  client tool usage.
+  Verify: validation shows web_search/web_fetch > 0 on the real personal index.

@@ -36,6 +36,32 @@ def test_assistant_event_accumulates_tokens_tools_model():
     assert r.human_tokens == 120
 
 
+def test_client_web_tools_fold_into_web_fields():
+    recs = {}
+    ev = {
+        "type": "assistant", "sessionId": "s1", "timestamp": "2026-05-23T10:00:00Z",
+        "message": {
+            "model": "m",
+            "usage": {"input_tokens": 1, "output_tokens": 1,
+                      "server_tool_use": {"web_search_requests": 1, "web_fetch_requests": 0}},
+            "content": [
+                {"type": "tool_use", "name": "WebSearch", "input": {"query": "x"}},
+                {"type": "tool_use", "name": "WebSearch", "input": {"query": "y"}},
+                {"type": "tool_use", "name": "WebFetch", "input": {"url": "z"}},
+                {"type": "tool_use", "name": "Bash"},
+            ],
+        },
+    }
+    ingest_event(recs, ev, account="personal", machine="m", walled=False, default_sid="s1")
+    r = recs["s1"]
+    # client web tool-uses fold into the dedicated fields, on top of the server count
+    assert r.web_search == 3   # 2 client WebSearch + 1 server web_search_requests
+    assert r.web_fetch == 1    # 1 client WebFetch + 0 server
+    # and they remain in tool_counts (the build-debug ranking view)
+    assert r.tool_counts["WebSearch"] == 2 and r.tool_counts["WebFetch"] == 1
+    assert r.tool_counts["Bash"] == 1
+
+
 def test_ai_title_and_user_events():
     recs = _records()
     ingest_event(recs, {"type": "ai-title", "sessionId": "s1", "aiTitle": "Fix the bug"},
