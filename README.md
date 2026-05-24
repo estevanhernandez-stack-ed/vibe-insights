@@ -8,7 +8,8 @@ A deterministic Python engine reads your Claude Code session transcripts and pro
 - **Where was I** — most-recent sessions with titles, branches, machines (ADHD-brain recall).
 - **Token & cost** — burn, output share, and the cache reveal (cache-read tokens vs fresh input).
 - **Trends** — burn per day, recent-vs-baseline acceleration.
-- **Pick this back up** — open feature branches you walked away from.
+- **How you work** — your tool mix (the build-debug loop), delegation habit (subagent + Haiku usage), and a per-machine comparison (which box is the workhorse).
+- **Pick this back up** — open feature branches you walked away from, ranked by how likely they are to be genuinely unfinished, plus a **prune candidates** list for branches that look shipped-or-abandoned.
 - **Decisions** — your logged architectural decisions (MCP-agnostic: file or your dashboard).
 - **Languages & signals** — what you edit, tool errors, multi-clauding (parallel sessions).
 - **How it went** — per-session friction / satisfaction / outcome (LLM-tagged, cached).

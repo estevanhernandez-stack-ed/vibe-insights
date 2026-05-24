@@ -160,3 +160,103 @@ def test_render_response_time():
     assert "## Response time" in md
     html = report.render_html(sessions, digest=digest)
     assert "Response time" in html
+
+
+# --- Phase 2 step 6: How you work + open-threads lenses ---
+
+def _how_you_work_digest():
+    """Digest carrying the new Phase-2 keys: tool_mix, delegation, by_machine,
+    plus enriched pick_back_up. Constructed directly so the render assertions
+    don't depend on analytics' date math."""
+    return {
+        "token_cost": {"burn": 100, "input": 10, "output": 90, "output_share": 90.0,
+                       "cache_read": 50, "cache_creation": 5, "cache_read_share": 80.0,
+                       "top_repos_by_burn": [{"repo": "vibe-insights", "sessions": 2, "burn": 100}],
+                       "model_session_counts": {"claude-opus-4-7": 2}},
+        "trends": {"by_day": {"2026-05-23": {"sessions": 2, "burn": 100}},
+                   "recent_avg_per_day": 100, "baseline_avg_per_day": 50,
+                   "acceleration_multiple": 2.0},
+        "tool_mix": {
+            "tools": [{"tool": "Bash", "count": 8400}, {"tool": "Read", "count": 7300},
+                      {"tool": "Edit", "count": 4100}],
+            "web_search": 12, "web_fetch": 7,
+        },
+        "delegation": {"agent_calls": 397, "haiku_sessions": 31},
+        "by_machine": [
+            {"machine": "nebuchadnezzar", "sessions": 75, "assistant_msgs": 39284,
+             "burn": 48900000, "repos": 14},
+            {"machine": "dunder-mifflan", "sessions": 57, "assistant_msgs": 17090,
+             "burn": 22100000, "repos": 9},
+        ],
+        "pick_back_up": [
+            {"repo": "Celestia3", "branch": "feat/ephem", "machine": "neb",
+             "title": "finish the engine", "last_ts": "2026-05-23T12:00:00+00:00",
+             "age_days": 1, "empty_title": False, "resume_signal": True,
+             "unfinished_score": 6},
+        ],
+        "prune_candidates": [
+            {"repo": "OldThing", "branch": "feat/dead", "machine": "neb",
+             "title": "shipped feature", "last_ts": "2026-03-01T12:00:00+00:00",
+             "age_days": 84, "empty_title": False, "resume_signal": False,
+             "unfinished_score": 0},
+        ],
+    }
+
+
+def test_render_how_you_work_markdown():
+    digest = _how_you_work_digest()
+    md = report.render_markdown([], digest=digest)
+    assert "## How you work" in md
+    # tool-mix entries present
+    assert "Bash" in md and "8,400" in md
+    assert "Read" in md and "7,300" in md
+    # delegation + web lines
+    assert "397" in md and "31" in md  # agent calls + haiku sessions
+    assert "12" in md and "7" in md    # web search + fetch
+    # per-machine row data
+    assert "nebuchadnezzar" in md and "39,284" in md
+    assert "dunder-mifflan" in md and "17,090" in md
+
+
+def test_render_how_you_work_html():
+    digest = _how_you_work_digest()
+    html = report.render_html([], digest=digest)
+    assert "How you work" in html
+    assert "Bash" in html and "8,400" in html
+    assert "397" in html      # agent calls tile
+    assert "nebuchadnezzar" in html and "39,284" in html
+
+
+def test_render_pick_back_up_shows_age_and_score():
+    digest = _how_you_work_digest()
+    md = report.render_markdown([], digest=digest)
+    # enriched columns in the pick-back-up table
+    assert "Age (d)" in md
+    assert "Score" in md
+    assert "finish the engine" in md
+    html = report.render_html([], digest=digest)
+    assert "Age" in html and "Score" in html
+    assert "finish the engine" in html
+
+
+def test_render_prune_candidates_present_when_nonempty():
+    digest = _how_you_work_digest()
+    md = report.render_markdown([], digest=digest)
+    assert "## Prune candidates" in md
+    assert "OldThing" in md
+    html = report.render_html([], digest=digest)
+    assert "Prune candidates" in html
+    assert "OldThing" in html
+
+
+def test_render_prune_candidates_omitted_when_empty():
+    digest = _how_you_work_digest()
+    digest["prune_candidates"] = []
+    md = report.render_markdown([], digest=digest)
+    assert "## Prune candidates" not in md
+    assert "OldThing" not in md
+    html = report.render_html([], digest=digest)
+    assert "Prune candidates" not in html
+    assert "OldThing" not in html
+    # pick-back-up still renders
+    assert "Pick this back up" in html

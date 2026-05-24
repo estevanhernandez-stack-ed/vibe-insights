@@ -71,8 +71,90 @@ def trends(sessions: list[dict]) -> dict:
     }
 
 
-def pick_back_up(sessions: list[dict], limit: int = 15) -> list[dict]:
-    feat = [s for s in sessions if (s.get("branch") or "") not in _FEATURE_EXCLUDE]
+def tool_mix(sessions: list[dict]) -> dict:
+    counts: Counter = Counter()
+    for s in sessions:
+        for tool, n in (s.get("tool_counts") or {}).items():
+            counts[tool] += int(n or 0)
+    tools = [{"tool": t, "count": c} for t, c in counts.most_common(12)]
+    return {
+        "tools": tools,
+        "web_search": sum(int(s.get("web_search") or 0) for s in sessions),
+        "web_fetch": sum(int(s.get("web_fetch") or 0) for s in sessions),
+    }
+
+
+def delegation(sessions: list[dict]) -> dict:
+    agent_calls = sum(int((s.get("tool_counts") or {}).get("Agent", 0) or 0)
+                      for s in sessions)
+    haiku_sessions = sum(
+        1 for s in sessions
+        if any("haiku" in str(m).lower() for m in (s.get("models") or []))
+    )
+    return {"agent_calls": agent_calls, "haiku_sessions": haiku_sessions}
+
+
+def by_machine(sessions: list[dict]) -> list[dict]:
+    agg: dict = defaultdict(lambda: {"sessions": 0, "assistant_msgs": 0,
+                                     "burn": 0, "repos": set()})
+    for s in sessions:
+        m = s.get("machine") or ""
+        row = agg[m]
+        row["sessions"] += 1
+        row["assistant_msgs"] += int(s.get("assistant_msgs") or 0)
+        row["burn"] += int(s.get("human_tokens") or 0)
+        repo = s.get("repo") or ""
+        if repo:
+            row["repos"].add(repo)
+    out = [{"machine": m, "sessions": r["sessions"],
+            "assistant_msgs": r["assistant_msgs"], "burn": r["burn"],
+            "repos": len(r["repos"])}
+           for m, r in agg.items()]
+    out.sort(key=lambda r: -r["assistant_msgs"])
+    return out
+
+
+_VERY_OLD_DAYS = 10**6
+
+_RESUME_KEYWORDS = (
+    "continue", "complete", "finish", "wip", "smoke", "fix", "todo",
+    "left off", "pick up",
+)
+
+
+def _age_days(last_ts) -> int:
+    """Days since last_ts vs tz-aware now; unparseable/missing -> very old."""
+    ts = _parse(last_ts)
+    if ts is None:
+        return _VERY_OLD_DAYS
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - ts).days
+
+
+def _enrich_branch(s: dict) -> dict:
+    """Per-branch record: existing fields + deterministic open-thread signals."""
+    title = s.get("title", "") or ""
+    age = _age_days(s.get("last_ts"))
+    empty_title = not title.strip()
+    lower = title.lower()
+    resume_signal = any(kw in lower for kw in _RESUME_KEYWORDS)
+    recency = max(0, 3 - age // 7)
+    score = (3 if resume_signal else 0) + (2 if empty_title else 0) + recency
+    return {
+        "repo": s.get("repo", ""), "branch": s.get("branch", ""),
+        "machine": s.get("machine", ""), "title": title,
+        "last_ts": s.get("last_ts", ""),
+        "age_days": age, "empty_title": empty_title,
+        "resume_signal": resume_signal, "unfinished_score": score,
+    }
+
+
+def _feature_branches(sessions: list[dict]) -> list[dict]:
+    """Unique (repo, branch, machine) feature branches, most-recent session wins,
+    each enriched with open-thread signals."""
+    feat = [s for s in sessions
+            if (s.get("branch") or "") not in _FEATURE_EXCLUDE]
     feat.sort(key=lambda s: s.get("last_ts") or "", reverse=True)
     out: list[dict] = []
     seen: set = set()
@@ -81,14 +163,27 @@ def pick_back_up(sessions: list[dict], limit: int = 15) -> list[dict]:
         if key in seen:
             continue
         seen.add(key)
-        out.append({
-            "repo": s.get("repo", ""), "branch": s.get("branch", ""),
-            "machine": s.get("machine", ""), "title": s.get("title", ""),
-            "last_ts": s.get("last_ts", ""),
-        })
-        if len(out) >= limit:
-            break
+        out.append(_enrich_branch(s))
     return out
+
+
+def _is_prune(rec: dict) -> bool:
+    return (rec["age_days"] >= 21
+            and not rec["resume_signal"]
+            and not rec["empty_title"])
+
+
+def pick_back_up(sessions: list[dict], limit: int = 15) -> list[dict]:
+    branches = [b for b in _feature_branches(sessions) if not _is_prune(b)]
+    branches.sort(key=lambda b: (b["unfinished_score"], b["last_ts"] or ""),
+                  reverse=True)
+    return branches[:limit]
+
+
+def prune_candidates(sessions: list[dict]) -> list[dict]:
+    branches = [b for b in _feature_branches(sessions) if _is_prune(b)]
+    branches.sort(key=lambda b: b["last_ts"] or "", reverse=True)
+    return branches
 
 
 _EXT_LANG = {
@@ -203,6 +298,10 @@ def build_digest(sessions: list[dict]) -> dict:
         "token_cost": token_cost(sessions),
         "trends": trends(sessions),
         "pick_back_up": pick_back_up(sessions),
+        "prune_candidates": prune_candidates(sessions),
+        "tool_mix": tool_mix(sessions),
+        "delegation": delegation(sessions),
+        "by_machine": by_machine(sessions),
         "languages": languages(sessions),
         "tool_errors": tool_error_total(sessions),
         "parallel": parallel_sessions(sessions),

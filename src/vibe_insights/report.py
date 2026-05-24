@@ -37,15 +37,48 @@ def _md_trends(tr: dict) -> list[str]:
     return out
 
 
+def _md_how_you_work(tool_mix: dict, delegation: dict, by_machine: list) -> list[str]:
+    out = ["", "## How you work", "", "| Tool | Calls |", "|---|---|"]
+    for t in tool_mix.get("tools", []):
+        out.append(f"| {_md_cell(t['tool'])} | {t['count']:,} |")
+    out += [
+        "",
+        f"- Delegation: {delegation.get('agent_calls', 0):,} Agent calls "
+        f"· {delegation.get('haiku_sessions', 0):,} sessions on Haiku",
+        f"- Web: {tool_mix.get('web_search', 0):,} searches "
+        f"· {tool_mix.get('web_fetch', 0):,} fetches",
+        "",
+        "| Machine | Sessions | Asst msgs | Burn | Repos |",
+        "|---|---|---|---|---|",
+    ]
+    for r in by_machine:
+        out.append(f"| {_md_cell(r['machine'])} | {r['sessions']:,} "
+                   f"| {r['assistant_msgs']:,} | {r['burn']:,} | {r['repos']:,} |")
+    return out
+
+
 def _md_pick_back_up(pb: list) -> list[str]:
     out = ["", "## Pick this back up", "",
-           "| Repo | Branch | Title | Last activity | Machine |",
-           "|---|---|---|---|---|"]
+           "| Repo | Branch | Title | Age (d) | Score | Last activity | Machine |",
+           "|---|---|---|---|---|---|---|"]
     if not pb:
-        out.append("| _nothing on a feature branch_ |  |  |  |  |")
+        out.append("| _nothing on a feature branch_ |  |  |  |  |  |  |")
     for s in pb:
         out.append(f"| {_md_cell(s['repo'])} | {_md_cell(s['branch'])} "
-                   f"| {_md_cell(s['title'])} | {_md_cell(s['last_ts'])} | {_md_cell(s['machine'])} |")
+                   f"| {_md_cell(s['title'])} | {s.get('age_days', '')} "
+                   f"| {s.get('unfinished_score', '')} "
+                   f"| {_md_cell(s['last_ts'])} | {_md_cell(s['machine'])} |")
+    return out
+
+
+def _md_prune_candidates(pc: list) -> list[str]:
+    out = ["", "## Prune candidates", "",
+           "| Repo | Branch | Title | Age (d) | Last activity | Machine |",
+           "|---|---|---|---|---|---|"]
+    for s in pc:
+        out.append(f"| {_md_cell(s['repo'])} | {_md_cell(s['branch'])} "
+                   f"| {_md_cell(s['title'])} | {s.get('age_days', '')} "
+                   f"| {_md_cell(s['last_ts'])} | {_md_cell(s['machine'])} |")
     return out
 
 
@@ -176,7 +209,12 @@ def render_markdown(sessions: list[dict], digest: dict | None = None, limit: int
             lines += _md_glance(digest["glance"], digest.get("pick_back_up", []))
         lines += _md_token_cost(digest["token_cost"])
         lines += _md_trends(digest["trends"])
+        if "tool_mix" in digest and "delegation" in digest and "by_machine" in digest:
+            lines += _md_how_you_work(digest["tool_mix"], digest["delegation"],
+                                      digest["by_machine"])
         lines += _md_pick_back_up(digest["pick_back_up"])
+        if digest.get("prune_candidates"):
+            lines += _md_prune_candidates(digest["prune_candidates"])
         if "decisions" in digest:
             lines += _md_decisions(digest["decisions"])
         if "languages" in digest:
@@ -321,7 +359,9 @@ def render_html(sessions: list[dict], digest: dict | None = None, narrative_html
             for d, v in days)
         accel = tr.get("acceleration_multiple")
         accel_txt = f" &middot; recent days run ~{accel}&times; your average day" if accel else ""
-        pb_rows = [[s["repo"], s["branch"], s["title"], (s["last_ts"] or "")[:10], s["machine"]] for s in pb]
+        pb_rows = [[s["repo"], s["branch"], s["title"], s.get("age_days", ""),
+                    s.get("unfinished_score", ""), (s["last_ts"] or "")[:10], s["machine"]]
+                   for s in pb]
         extra += (
             "<section class='card'><div class='kick'>Token &amp; cost</div>"
             f"<div class='tiles'>{stat}</div>"
@@ -330,9 +370,58 @@ def render_html(sessions: list[dict], digest: dict | None = None, narrative_html
             f"<p class='lead'>Recent avg <b>{tr['recent_avg_per_day']:,}</b>/day vs baseline "
             f"<b>{tr['baseline_avg_per_day']:,}</b>/day{accel_txt}.</p>"
             f"<div class='bars'>{bars}</div></section>"
-            "<section class='card'><div class='kick'>Pick this back up</div>"
-            + tbl(["Repo", "Branch", "Title", "Last activity", "Machine"], pb_rows, {3}) + "</section>"
         )
+
+        # --- How you work card ---
+        tm = digest.get("tool_mix")
+        dl = digest.get("delegation")
+        bm = digest.get("by_machine")
+        if tm is not None and dl is not None and bm is not None:
+            tools = tm.get("tools", [])
+            mxt = max((t.get("count", 0) for t in tools), default=1) or 1
+            tool_bars = "".join(
+                f"<div class='bar-row'><div class='bar-label'>{esc(t.get('tool', ''))}</div>"
+                f"<div class='bar-track'><div class='bar-fill' style='width:{t.get('count', 0)/mxt*100:.0f}%'></div></div>"
+                f"<div class='bar-value'>{t.get('count', 0):,}</div></div>"
+                for t in tools) or "<p class='ts'>—</p>"
+            deleg_tiles = (
+                f"<div class='tile'><div class='tl'>Agent calls</div>"
+                f"<div class='tn'>{dl.get('agent_calls', 0):,}</div>"
+                f"<div class='ts'>subagent delegations</div></div>"
+                f"<div class='tile'><div class='tl'>Haiku sessions</div>"
+                f"<div class='tn'>{dl.get('haiku_sessions', 0):,}</div>"
+                f"<div class='ts'>sessions touching Haiku</div></div>"
+                f"<div class='tile'><div class='tl'>Web</div>"
+                f"<div class='tn' style='font-size:20px'>{tm.get('web_search', 0):,} / {tm.get('web_fetch', 0):,}</div>"
+                f"<div class='ts'>searches / fetches</div></div>"
+            )
+            machine_rows = [[r["machine"], f"{r['sessions']:,}", f"{r['assistant_msgs']:,}",
+                             f"{r['burn']:,}", f"{r['repos']:,}"] for r in bm]
+            extra += (
+                "<section class='card'><div class='kick'>How you work</div>"
+                "<h3>Tool mix</h3>" + tool_bars
+                + f"<div class='tiles' style='margin-top:16px'>{deleg_tiles}</div>"
+                + "<h3>By machine</h3>"
+                + tbl(["Machine", "Sessions", "Asst msgs", "Burn", "Repos"],
+                      machine_rows, {1, 2, 3, 4})
+                + "</section>"
+            )
+
+        # --- Pick this back up (+ prune candidates) card ---
+        pb_card = (
+            "<section class='card'><div class='kick'>Pick this back up</div>"
+            + tbl(["Repo", "Branch", "Title", "Age", "Score", "Last activity", "Machine"],
+                  pb_rows, {3, 4, 5})
+        )
+        pc = digest.get("prune_candidates")
+        if pc:
+            pc_rows = [[s["repo"], s["branch"], s["title"], s.get("age_days", ""),
+                        (s["last_ts"] or "")[:10], s["machine"]] for s in pc]
+            pb_card += ("<h3>Prune candidates</h3>"
+                        + tbl(["Repo", "Branch", "Title", "Age", "Last activity", "Machine"],
+                              pc_rows, {3, 4}))
+        pb_card += "</section>"
+        extra += pb_card
         dec_html = ""
         if "decisions" in digest:
             dec_rows = [[(d.get("timestamp") or "")[:10], d.get("title", ""),
