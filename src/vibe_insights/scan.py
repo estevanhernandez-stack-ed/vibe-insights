@@ -142,6 +142,13 @@ def ingest_event(records: dict, ev: dict, account: str, machine: str,
                 if isinstance(block, dict) and block.get("type") == "tool_use":
                     name = block.get("name") or "unknown"
                     rec.tool_counts[name] = rec.tool_counts.get(name, 0) + 1
+                    # Client-side web tools fold into the web fields too (the
+                    # server_tool_use accounting above only sees the API's
+                    # server-side web tool, which is ~0 in normal Claude Code use).
+                    if name == "WebSearch":
+                        rec.web_search += 1
+                    elif name == "WebFetch":
+                        rec.web_fetch += 1
                     if name in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
                         fp = (block.get("input") or {}).get("file_path") or (block.get("input") or {}).get("notebook_path") or ""
                         basename = fp.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
