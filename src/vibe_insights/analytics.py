@@ -84,6 +84,16 @@ def tool_mix(sessions: list[dict]) -> dict:
     }
 
 
+def delegation(sessions: list[dict]) -> dict:
+    agent_calls = sum(int((s.get("tool_counts") or {}).get("Agent", 0) or 0)
+                      for s in sessions)
+    haiku_sessions = sum(
+        1 for s in sessions
+        if any("haiku" in str(m).lower() for m in (s.get("models") or []))
+    )
+    return {"agent_calls": agent_calls, "haiku_sessions": haiku_sessions}
+
+
 def pick_back_up(sessions: list[dict], limit: int = 15) -> list[dict]:
     feat = [s for s in sessions if (s.get("branch") or "") not in _FEATURE_EXCLUDE]
     feat.sort(key=lambda s: s.get("last_ts") or "", reverse=True)

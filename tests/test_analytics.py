@@ -152,3 +152,41 @@ def test_tool_mix_handles_missing_fields():
     tm = analytics.tool_mix([_s()])
     assert tm["tools"] == []
     assert tm["web_search"] == 0 and tm["web_fetch"] == 0
+
+
+# --- Item 2: delegation ------------------------------------------------------
+
+def test_delegation_agent_call_sum():
+    sessions = [
+        _s(tool_counts={"Agent": 5, "Bash": 2}),
+        _s(tool_counts={"Agent": 3}),
+        _s(tool_counts={"Bash": 9}),  # no Agent
+    ]
+    d = analytics.delegation(sessions)
+    assert d["agent_calls"] == 8
+
+
+def test_delegation_haiku_case_insensitive():
+    sessions = [
+        _s(models=["claude-HAIKU-4-5"]),
+        _s(models=["claude-opus-4-7"]),
+        _s(models=["Claude-Haiku"]),
+    ]
+    d = analytics.delegation(sessions)
+    assert d["haiku_sessions"] == 2
+
+
+def test_delegation_multi_model_counts_session_once():
+    # a session listing both opus and haiku counts as ONE haiku session
+    sessions = [
+        _s(models=["claude-opus-4-7", "claude-haiku-4-5"]),
+        _s(models=["claude-haiku-4-5", "claude-haiku-4-5"]),
+    ]
+    d = analytics.delegation(sessions)
+    assert d["haiku_sessions"] == 2
+
+
+def test_delegation_no_model_sessions():
+    sessions = [_s(models=[]), _s()]  # _s default models=[]
+    d = analytics.delegation(sessions)
+    assert d == {"agent_calls": 0, "haiku_sessions": 0}
