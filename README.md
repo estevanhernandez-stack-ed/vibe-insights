@@ -1,8 +1,16 @@
-# vibe-insights
+<p align="center">
+  <img alt="Vibe Insights — cross-machine, work-walled Claude Code session analytics" src="https://626labs.dev/assets/brand/plugins/vibe-insights-banner-1500x500.png" />
+</p>
 
-Cross-machine, work-walled **Claude Code session analytics** — the verbose `/insights` you wish you had, over *all* your machines and history, with the parts that are your employer's kept local.
+# Vibe Insights
 
-A deterministic Python engine reads your Claude Code session transcripts and produces a single branded report:
+**Cross-machine, work-walled Claude Code session analytics — the verbose `/insights` you wish you had.**
+
+[![stable](https://img.shields.io/github/v/tag/estevanhernandez-stack-ed/vibe-insights?label=stable&color=17d4fa)](https://github.com/estevanhernandez-stack-ed/vibe-insights/tags)
+
+## What it does
+
+A deterministic Python engine reads your Claude Code session transcripts — across *all* your machines and history, with the parts that are your employer's kept local — and produces one branded report:
 
 - **Coverage** — sessions / repos / token burn, split by account (work vs personal) × machine.
 - **Where was I** — most-recent sessions with titles, branches, machines (ADHD-brain recall).
@@ -15,44 +23,62 @@ A deterministic Python engine reads your Claude Code session transcripts and pro
 - **How it went** — per-session friction / satisfaction / outcome (LLM-tagged, cached).
 - **A narrative read** — a synthesized "how you actually work" interpretation, grounded in the numbers.
 
-## Design
+## How it works
 
 - **Engine is deterministic and offline.** It never calls an LLM or MCP — it reads local JSONL transcripts and a few local cache files. The narrative + decisions + per-session tags are produced by the `/vibe-insights` skill (where the LLM lives) and handed to the engine as files. That keeps the analytics reproducible and the tool marketplace-portable.
 - **The wall is by repo, not by home.** Configure `work_repos`; those sessions are labeled `work`, kept **local-only** (never synced cross-machine, never pushed), but still visible in your own report. Personal sessions sync.
 - **Cross-machine via per-machine indexes.** Each machine emits a tiny `index.json`; sync the `synced/` folder (e.g., Syncthing) and the report merges every machine. Token math can be shared with **Sanduhr** via the optional [`cc-logs`](https://github.com/estevanhernandez-stack-ed/cc-logs) package, so burn numbers stay aligned across tools when it's installed.
 
-## Install
-
-Requires Python 3.11+.
-
-```bash
-git clone https://github.com/estevanhernandez-stack-ed/vibe-insights
-cd vibe-insights
-python -m pip install -e .
-
-# Optional: share token/parse definitions with Sanduhr et al. so the
-# numbers stay aligned (pulls cc-logs). vibe-insights works without it.
-python -m pip install -e ".[shared]"
-
-# Discover your config homes, review the labels, then run
-python -m vibe_insights.cli --init
-python -m vibe_insights.cli
-```
-
-As a Claude Code plugin, the `/vibe-insights` skill orchestrates the run, synthesizes the narrative, and (optionally) pulls your decisions from a file or MCP.
-
-## Usage
-
 ```bash
 vibe-insights                # scan + build the report
-vibe-insights --render-only  # re-render without re-scanning (used after the narrative is written)
+vibe-insights --render-only  # re-render without re-scanning (after the narrative is written)
 vibe-insights --emit-tagging-input   # emit sessions needing per-session tags
 ```
 
 Reports land in `~/.vibe-insights/reports/insights.html`.
 
-## Status
+## Validated on
 
-v0.1.0 — native-`/insights`-parity-plus.
+Proven on a live **195-session personal index** across two machines — the Phase 2 lenses (how-you-work, ranked open-threads) were validated end-to-end against real data before shipping.
 
-— 626 Labs · *Imagine Something Else.*
+## Install
+
+**Stable (recommended) — as a Claude Code plugin via the marketplace:**
+
+```text
+/plugin marketplace add estevanhernandez-stack-ed/vibe-plugins
+/plugin install vibe-insights@vibe-plugins
+```
+
+**Canary — track this repo's `main`:**
+
+```text
+/plugin install vibe-insights@estevanhernandez-stack-ed/vibe-insights
+```
+
+**Standalone engine (Python 3.11+):**
+
+```bash
+git clone https://github.com/estevanhernandez-stack-ed/vibe-insights
+cd vibe-insights
+python -m pip install -e .
+# Optional: share token/parse definitions with Sanduhr et al. (pulls cc-logs)
+python -m pip install -e ".[shared]"
+
+python -m vibe_insights.cli --init   # discover config homes, review labels
+python -m vibe_insights.cli          # scan + build the report
+```
+
+As a plugin, the `/vibe-insights` skill orchestrates the run, synthesizes the narrative, and (optionally) pulls your decisions from a file or MCP.
+
+## Part of the Vibe ecosystem
+
+One of 11 plugins in the **[Vibe Plugins](https://github.com/estevanhernandez-stack-ed/vibe-plugins)** marketplace from [626 Labs](https://626labs.dev) — foundations (Thesis Engine, Keystone) and process pillars (Cartographer, Doc, Sec, Test, Thesis, Iterate, Taker, Walk, Insights) for AI-assisted creation.
+
+```text
+/plugin marketplace add estevanhernandez-stack-ed/vibe-plugins
+```
+
+## License
+
+MIT — *Imagine Something Else.*
