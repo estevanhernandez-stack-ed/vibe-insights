@@ -378,11 +378,11 @@ def render_html(sessions: list[dict], digest: dict | None = None, narrative_html
         bm = digest.get("by_machine")
         if tm is not None and dl is not None and bm is not None:
             tools = tm.get("tools", [])
-            mxt = max((t["count"] for t in tools), default=1) or 1
+            mxt = max((t.get("count", 0) for t in tools), default=1) or 1
             tool_bars = "".join(
-                f"<div class='bar-row'><div class='bar-label'>{esc(t['tool'])}</div>"
-                f"<div class='bar-track'><div class='bar-fill' style='width:{t['count']/mxt*100:.0f}%'></div></div>"
-                f"<div class='bar-value'>{t['count']:,}</div></div>"
+                f"<div class='bar-row'><div class='bar-label'>{esc(t.get('tool', ''))}</div>"
+                f"<div class='bar-track'><div class='bar-fill' style='width:{t.get('count', 0)/mxt*100:.0f}%'></div></div>"
+                f"<div class='bar-value'>{t.get('count', 0):,}</div></div>"
                 for t in tools) or "<p class='ts'>—</p>"
             deleg_tiles = (
                 f"<div class='tile'><div class='tl'>Agent calls</div>"

@@ -153,7 +153,7 @@ def test_tool_mix_sums_and_ranks():
     ]
     tm = analytics.tool_mix(sessions)
     tools = tm["tools"]
-    # ranked desc by count: Read 6, Bash 8 -> wait Bash=8, Read=6, Edit=1
+    # ranked desc by count: Bash=8, Read=6, Edit=1
     assert tools[0] == {"tool": "Bash", "count": 8}
     assert tools[1] == {"tool": "Read", "count": 6}
     assert tools[2] == {"tool": "Edit", "count": 1}
