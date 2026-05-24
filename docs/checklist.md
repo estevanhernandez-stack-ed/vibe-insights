@@ -60,7 +60,7 @@
   Acceptance: SKILL step 4 names every new digest field. No engine logic moved into the SKILL.
   Verify: Re-read SKILL step 4 — every new field is referenced. **Checkpoint + superpowers code-review pass** before the final gate.
 
-- [ ] **8. Documentation & security verification**
+- [x] **8. Documentation & security verification**
   Spec ref: `design.md > all sections` + `design.md > Validation`
   What to build: Confirm `README.md` reflects the new lenses (what the report now produces). Confirm `docs/` artifacts (design spec, checklist) are current with what shipped. Run the full `pytest` suite. Run the **real-index validation** — `vibe-insights` against the local index — and confirm the report auto-produces the tool-mix line, delegation signal, machine comparison, and ranked/pruned open-threads (the prototype's read, generated). Secrets scan: no tokens/keys committed; `.gitignore` sane (no `config.json`, no `.vibe-insights/` data). Dependency audit (`pip audit` or `python -m pip_audit` against `pyproject.toml`); address criticals.
   Acceptance: Full suite green. Real-index run shows all four lenses populated. README + docs current. No secrets in the diff. Dependency audit clean or findings documented.
