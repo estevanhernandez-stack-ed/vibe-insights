@@ -73,7 +73,7 @@ As a plugin, the `/vibe-insights` skill orchestrates the run, synthesizes the na
 
 ## Part of the Vibe ecosystem
 
-One of 11 plugins in the **[Vibe Plugins](https://github.com/estevanhernandez-stack-ed/vibe-plugins)** marketplace from [626 Labs](https://626labs.dev) — foundations (Thesis Engine, Keystone) and process pillars (Cartographer, Doc, Sec, Test, Thesis, Iterate, Taker, Walk, Insights) for AI-assisted creation.
+Part of the **[Vibe Plugins](https://github.com/estevanhernandez-stack-ed/vibe-plugins)** marketplace from [626 Labs](https://626labs.dev) — foundations and process pillars for AI-assisted creation.
 
 ```text
 /plugin marketplace add estevanhernandez-stack-ed/vibe-plugins
