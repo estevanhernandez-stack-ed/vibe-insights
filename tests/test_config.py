@@ -23,19 +23,18 @@ def test_discover_sources_defaults_all_personal(tmp_path):
     assert ".claude-server-commander" not in by_path
 
 
-def test_build_config_shape(tmp_path):
+def test_build_config_new_schema(tmp_path):
     _make_home(tmp_path, ".claude-personal")
     cfg = config.build_config(home=tmp_path, machine="testbox",
                               data_dir=tmp_path / ".vibe-insights")
     assert cfg["machine"] == "testbox"
     assert cfg["dataDir"].endswith(".vibe-insights")
-    assert len(cfg["homes"]) == 1
-
-
-def test_build_config_includes_work_repos_key(tmp_path):
-    _make_home(tmp_path, ".claude-personal")
-    cfg = config.build_config(home=tmp_path, machine="m", data_dir=tmp_path / ".vi")
-    assert "work_repos" in cfg and cfg["work_repos"] == []
+    assert cfg["advanced"]["sources"] == [
+        {"path": str(tmp_path / ".claude-personal"), "private": False}
+    ]
+    assert cfg["advanced"]["private_repos"] == []
+    # legacy keys are gone from freshly-built config
+    assert "homes" not in cfg and "work_repos" not in cfg
 
 
 def test_build_config_includes_decisions_default(tmp_path):

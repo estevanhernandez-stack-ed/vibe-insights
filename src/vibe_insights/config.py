@@ -34,10 +34,12 @@ def build_config(home: Path = None, machine: str = None,
     return {
         "machine": machine or default_machine(),
         "dataDir": str(data_dir),
-        "homes": discover_sources(home),
-        "work_repos": [],
         "decisions": {"source": "none"},
         "voice": None,
+        "advanced": {
+            "sources": discover_sources(home),
+            "private_repos": [],
+        },
     }
 
 
