@@ -79,3 +79,25 @@ def write_config(config_path: Path, cfg: dict) -> None:
     Path(config_path).parent.mkdir(parents=True, exist_ok=True)
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
+
+
+def set_private(config_path: Path, repo: str = None, source: str = None) -> dict:
+    """Mark a repo (added to advanced.private_repos) or a source (its private
+    flag set True) as local-only. Writes the new-schema `advanced` block,
+    migrating a legacy file on the way. Returns the written config."""
+    with open(config_path, encoding="utf-8") as f:
+        raw = json.load(f)
+    norm = normalize_config(raw)
+    out = {
+        "machine": norm["machine"], "dataDir": norm["dataDir"],
+        "decisions": norm["decisions"], "voice": norm["voice"],
+        "advanced": {"sources": norm["sources"], "private_repos": norm["private_repos"]},
+    }
+    if repo and repo not in out["advanced"]["private_repos"]:
+        out["advanced"]["private_repos"].append(repo)
+    if source:
+        for s in out["advanced"]["sources"]:
+            if s["path"] == source:
+                s["private"] = True
+    write_config(config_path, out)
+    return out

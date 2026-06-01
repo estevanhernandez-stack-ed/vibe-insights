@@ -261,3 +261,15 @@ def test_privacy_nudge_absent_when_something_private(capsys, tmp_path, monkeypat
     cli.main(["--config", str(cfgpath)])
     out = capsys.readouterr().out
     assert "private_repos" not in out  # already using privacy -> no nudge
+
+
+def test_privacy_flag_lists_sources(capsys, tmp_path):
+    p = tmp_path / "config.json"
+    config_mod.write_config(p, {"machine": "m", "dataDir": str(tmp_path),
+        "decisions": {"source": "none"}, "voice": None,
+        "advanced": {"sources": [{"path": "/h/.claude", "private": False}],
+                     "private_repos": []}})
+    rc = cli.main(["--privacy", "--config", str(p)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "/h/.claude" in out and "personal" in out

@@ -1,7 +1,7 @@
 """CLI entry: `vibe-insights` runs scan then report.
 
 Usage:
-    vibe-insights --init        # discover homes, write config.json (review it!)
+    vibe-insights --init        # discover sources, write config.json (review it!)
     vibe-insights               # scan + report using config.json
 """
 import argparse
@@ -63,7 +63,7 @@ def privacy_nudge(cfg: dict) -> str | None:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="vibe-insights")
     parser.add_argument("--init", action="store_true",
-                        help="discover homes and write config.json for review")
+                        help="discover sources and write config.json for review")
     parser.add_argument("--render-only", action="store_true",
                         help="re-render reports from existing index + digest + narrative, no re-scan")
     parser.add_argument("--emit-tagging-input", action="store_true",
@@ -73,6 +73,12 @@ def main(argv=None) -> int:
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--repo", default=None,
                         help="scope the report to a single repo (by name, case-insensitive)")
+    parser.add_argument("--privacy", action="store_true",
+                        help="show which sources/repos are personal vs private, and how to wall")
+    parser.add_argument("--make-private", metavar="REPO", default=None,
+                        help="mark a repo local-only (adds to advanced.private_repos)")
+    parser.add_argument("--make-private-source", metavar="PATH", default=None,
+                        help="mark a source local-only (sets its private flag)")
     parser.add_argument("--story-input", default=None, metavar="REPO",
                         help="emit a build-story spine (sessions+decisions+commits) for a repo")
     parser.add_argument("--repo-path", default=None,
@@ -150,6 +156,29 @@ def main(argv=None) -> int:
         print("All sources are personal (synced-eligible) by default. To keep any "
               "local-only, set \"private\": true on a source or add repos to "
               "advanced.private_repos — then run `vibe-insights`.")
+        return 0
+
+    if args.make_private or args.make_private_source:
+        if not config_path.exists():
+            print(f"No config at {config_path}. Run `vibe-insights --init` first.", file=sys.stderr)
+            return 1
+        config_mod.set_private(config_path, repo=args.make_private,
+                               source=args.make_private_source)
+        target = args.make_private or args.make_private_source
+        print(f"Marked private: {target}. Re-run `vibe-insights` to apply.")
+        return 0
+
+    if args.privacy:
+        if not config_path.exists():
+            print(f"No config at {config_path}. Run `vibe-insights --init` first.", file=sys.stderr)
+            return 1
+        cfg = config_mod.load_config(config_path)
+        print("Sources:")
+        for s in cfg["sources"]:
+            print(f"  {'private (local-only)' if s['private'] else 'personal'}  {s['path']}")
+        print(f"Private repos: {cfg['private_repos'] or '(none)'}")
+        print("Wall a repo:   vibe-insights --make-private owner/repo")
+        print("Wall a source: vibe-insights --make-private-source ~/.claude-work")
         return 0
 
     if not config_path.exists():

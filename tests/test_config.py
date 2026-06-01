@@ -92,3 +92,23 @@ def test_load_config_returns_normalized(tmp_path):
     cfg = config.load_config(p)
     assert cfg["sources"] == [{"path": "/h/.claude", "private": True}]
     assert cfg["private_repos"] == ["e/r"]
+
+
+def test_set_private_repo_writes_advanced(tmp_path):
+    p = tmp_path / "config.json"
+    config.write_config(p, config.build_config(home=tmp_path, machine="m",
+                                                data_dir=tmp_path / ".vi"))
+    config.set_private(p, repo="owner/api")
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    assert "owner/api" in raw["advanced"]["private_repos"]
+
+
+def test_set_private_source_marks_private(tmp_path):
+    _make_home(tmp_path, ".claude-work")
+    p = tmp_path / "config.json"
+    config.write_config(p, config.build_config(home=tmp_path, machine="m",
+                                                data_dir=tmp_path / ".vi"))
+    config.set_private(p, source=str(tmp_path / ".claude-work"))
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    src = {s["path"]: s for s in raw["advanced"]["sources"]}
+    assert src[str(tmp_path / ".claude-work")]["private"] is True
