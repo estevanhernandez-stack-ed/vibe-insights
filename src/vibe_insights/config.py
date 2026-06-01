@@ -43,6 +43,33 @@ def build_config(home: Path = None, machine: str = None,
     }
 
 
+def normalize_config(cfg: dict) -> dict:
+    """Return a canonical internal config from either the new schema
+    (core + `advanced.sources`/`private_repos`) or the legacy schema
+    (`homes` with `account`/`walled`, top-level `work_repos`). Downstream
+    code consumes only `sources` (list of {path, private}) + `private_repos`."""
+    adv = cfg.get("advanced") or {}
+    if adv.get("sources") is not None:
+        sources = [{"path": s["path"], "private": bool(s.get("private", False))}
+                   for s in adv["sources"]]
+    elif cfg.get("homes") is not None:  # legacy: walled -> private
+        sources = [{"path": h["path"], "private": bool(h.get("walled", False))}
+                   for h in cfg["homes"]]
+    else:  # no sources declared -> discover, all personal
+        sources = discover_sources()
+    private_repos = adv.get("private_repos")
+    if private_repos is None:
+        private_repos = cfg.get("work_repos", [])  # legacy
+    return {
+        "machine": cfg.get("machine") or default_machine(),
+        "dataDir": cfg.get("dataDir") or str(Path.home() / ".vibe-insights"),
+        "sources": sources,
+        "private_repos": list(private_repos),
+        "decisions": cfg.get("decisions") or {"source": "none"},
+        "voice": cfg.get("voice"),
+    }
+
+
 def load_config(config_path: Path) -> dict:
     with open(config_path, encoding="utf-8") as f:
         return json.load(f)

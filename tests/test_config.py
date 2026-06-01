@@ -47,3 +47,35 @@ def test_build_config_includes_voice_default(tmp_path):
     _make_home(tmp_path, ".claude-personal")
     cfg = config.build_config(home=tmp_path, machine="m", data_dir=tmp_path / ".vi")
     assert cfg["voice"] is None
+
+
+def test_normalize_new_schema_passthrough():
+    cfg = {"machine": "m", "dataDir": "/d",
+           "decisions": {"source": "none"}, "voice": None,
+           "advanced": {"sources": [{"path": "/h/.claude-work", "private": True}],
+                        "private_repos": ["employer/api"]}}
+    norm = config.normalize_config(cfg)
+    assert norm["sources"] == [{"path": "/h/.claude-work", "private": True}]
+    assert norm["private_repos"] == ["employer/api"]
+    assert norm["machine"] == "m" and norm["dataDir"] == "/d"
+
+
+def test_normalize_legacy_schema_maps_walled_to_private():
+    legacy = {"machine": "m", "dataDir": "/d",
+              "homes": [{"path": "/h/.claude", "account": "work", "walled": True},
+                        {"path": "/h/.claude-personal", "account": "personal", "walled": False}],
+              "work_repos": ["employer/api"],
+              "decisions": {"source": "none"}, "voice": None}
+    norm = config.normalize_config(legacy)
+    assert norm["sources"] == [{"path": "/h/.claude", "private": True},
+                               {"path": "/h/.claude-personal", "private": False}]
+    assert norm["private_repos"] == ["employer/api"]
+
+
+def test_normalize_no_advanced_discovers_personal(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    _make_home(tmp_path, ".claude")
+    cfg = {"machine": "m", "dataDir": "/d", "decisions": {"source": "none"}, "voice": None}
+    norm = config.normalize_config(cfg)
+    assert norm["sources"] == [{"path": str(tmp_path / ".claude"), "private": False}]
+    assert norm["private_repos"] == []
