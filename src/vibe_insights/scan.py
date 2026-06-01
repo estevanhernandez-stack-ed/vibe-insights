@@ -202,15 +202,38 @@ def _atomic_write_json(path: Path, data) -> None:
         raise
 
 
+# Local-only index filename. Renamed from index.work.local.json in v0.3 to
+# match the "private" vocabulary. read_local_private_index() dual-reads both
+# so existing data keeps working. Downstream consumers reading the old name
+# get fixed when/if they surface — not preemptively hunted.
+PRIVATE_INDEX = "index.private.local.json"
+LEGACY_PRIVATE_INDEX = "index.work.local.json"
+
+
 def write_indexes(records: dict, data_dir: Path, machine: str) -> dict:
     """Personal -> <data_dir>/synced/<machine>/index.json (the only thing that
-    syncs across machines). Work -> <data_dir>/index.work.local.json (OUTSIDE
-    synced/, so employer data never enters the synced folder). Atomic writes."""
+    syncs across machines). Private -> <data_dir>/index.private.local.json
+    (OUTSIDE synced/, so local-only data never enters the synced folder)."""
     data_dir = Path(data_dir)
     personal = [r.to_dict() for r in records.values() if not r.walled]
-    work = [r.to_dict() for r in records.values() if r.walled]
+    private = [r.to_dict() for r in records.values() if r.walled]
     _atomic_write_json(data_dir / "synced" / machine / "index.json",
                        {"sessions": personal})
-    if work:
-        _atomic_write_json(data_dir / "index.work.local.json", {"sessions": work})
-    return {"personal": len(personal), "work": len(work)}
+    if private:
+        _atomic_write_json(data_dir / PRIVATE_INDEX, {"sessions": private})
+    return {"personal": len(personal), "private": len(private)}
+
+
+def read_local_private_index(data_dir: Path) -> list[dict]:
+    """Read this machine's local-only session shard. Prefers the new
+    index.private.local.json; falls back to the legacy index.work.local.json.
+    Never raises — missing/unreadable returns []."""
+    data_dir = Path(data_dir)
+    for name in (PRIVATE_INDEX, LEGACY_PRIVATE_INDEX):
+        p = data_dir / name
+        if p.exists():
+            try:
+                return json.loads(p.read_text(encoding="utf-8")).get("sessions", [])
+            except (OSError, json.JSONDecodeError):
+                return []
+    return []

@@ -79,6 +79,32 @@ def test_personal_burn_reconciles_with_cc_logs(tmp_path, monkeypatch):
     assert vi_total == cc_total == 110
 
 
+def test_write_indexes_uses_private_filename(tmp_path):
+    sources = [{"path": str(tmp_path / ".claude-work"), "private": True}]
+    _write_session(tmp_path, ".claude-work", "p", "w1",
+                   [_assistant("w1", "2026-05-20T10:00:00Z", 1, 1, "C:/w/A")])
+    recs = scan.build_records(sources, machine="m")
+    counts = scan.write_indexes(recs, tmp_path / "data", "m")
+    assert counts == {"personal": 0, "private": 1}
+    assert (tmp_path / "data" / "index.private.local.json").exists()
+    assert not (tmp_path / "data" / "index.work.local.json").exists()
+
+
+def test_read_local_private_index_prefers_new_falls_back_to_legacy(tmp_path):
+    d = tmp_path / "data"
+    d.mkdir()
+    (d / "index.work.local.json").write_text(
+        json.dumps({"sessions": [{"session_id": "legacy"}]}), encoding="utf-8")
+    assert [s["session_id"] for s in scan.read_local_private_index(d)] == ["legacy"]
+    (d / "index.private.local.json").write_text(
+        json.dumps({"sessions": [{"session_id": "fresh"}]}), encoding="utf-8")
+    assert [s["session_id"] for s in scan.read_local_private_index(d)] == ["fresh"]
+
+
+def test_read_local_private_index_missing_returns_empty(tmp_path):
+    assert scan.read_local_private_index(tmp_path) == []
+
+
 def test_subagent_tokens_fold_into_parent(tmp_path):
     import json
     base = tmp_path / ".claude-personal" / "projects" / "C--repo"
