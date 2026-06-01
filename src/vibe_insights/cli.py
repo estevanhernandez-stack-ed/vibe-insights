@@ -133,11 +133,14 @@ def main(argv=None) -> int:
         config_mod.write_config(config_path, cfg)
         print(f"Wrote {config_path}")
         print(json.dumps(cfg, indent=2))
-        print("Review the homes + account labels, then run `vibe-insights`.")
+        print("All sources are personal (synced-eligible) by default. To keep any "
+              "local-only, set \"private\": true on a source or add repos to "
+              "advanced.private_repos — then run `vibe-insights`.")
         return 0
 
     if not config_path.exists():
-        print(f"No config at {config_path}. Run `vibe-insights --init` first.",
+        print(f"No config at {config_path}. Run `vibe-insights --init` first, "
+              f"or just run `vibe-insights` to use auto-discovered personal sources.",
               file=sys.stderr)
         return 1
 

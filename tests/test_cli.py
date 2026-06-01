@@ -217,3 +217,14 @@ def test_run_personal_by_default_single_source(tmp_path, monkeypatch):
                                        "decisions": {"source": "none"}, "voice": None})
     result = cli.run(cfg)
     assert result["counts"] == {"personal": 1, "private": 0}
+
+
+def test_init_writes_advanced_sources(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    (tmp_path / ".claude" / "projects").mkdir(parents=True)
+    cfgpath = tmp_path / "config.json"
+    rc = cli.main(["--init", "--config", str(cfgpath)])
+    assert rc == 0
+    raw = json.loads(cfgpath.read_text(encoding="utf-8"))
+    assert raw["advanced"]["sources"] == [
+        {"path": str(tmp_path / ".claude"), "private": False}]
