@@ -193,7 +193,7 @@ def main(argv=None) -> int:
     if args.repo:
         print(f"Scoped to repo: {args.repo}")
     print(f"Indexed {c['personal']} personal"
-          + (f" + {c['work']} work (local-only)" if c.get("work") else "")
+          + (f" + {c['private']} private (local-only)" if c.get("private") else "")
           + f" sessions on {cfg['machine']}.")
     print(f"Report covers {result['merged_sessions']} sessions across machines "
           f"(personal merged + this machine's work).")
