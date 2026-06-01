@@ -10,17 +10,16 @@ def _make_home(tmp_path, name, with_projects=True):
     return d
 
 
-def test_discover_homes_labels_work_and_personal(tmp_path):
+def test_discover_sources_defaults_all_personal(tmp_path):
     _make_home(tmp_path, ".claude")
     _make_home(tmp_path, ".claude-personal")
     _make_home(tmp_path, ".claude-server-commander", with_projects=False)
-    homes = config.discover_homes(home=tmp_path)
-    by_path = {Path(h["path"]).name: h for h in homes}
-    assert by_path[".claude"]["account"] == "work"
-    assert by_path[".claude"]["walled"] is True
-    assert by_path[".claude-personal"]["account"] == "personal"
-    assert by_path[".claude-personal"]["walled"] is False
-    # no projects/ dir => not a home
+    sources = config.discover_sources(home=tmp_path)
+    by_path = {Path(s["path"]).name: s for s in sources}
+    # No more ".claude == work" — every discovered source is personal by default.
+    assert by_path[".claude"]["private"] is False
+    assert by_path[".claude-personal"]["private"] is False
+    # no projects/ dir => not a source
     assert ".claude-server-commander" not in by_path
 
 

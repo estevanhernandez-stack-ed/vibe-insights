@@ -1,8 +1,8 @@
-"""Topology: which config homes exist, and how each maps to an account.
+"""Topology: which Claude Code sources exist on this machine.
 
-Phase-1 heuristic: `.claude` is the work seat (walled); any other
-`.claude*` dir that contains a `projects/` subdir is personal. The
-emitted config.json is meant to be human-reviewed before use.
+A source is any `~/.claude*` dir containing `projects/`. Discovery marks
+every source personal (synced-eligible); walling is opt-in. The emitted
+config is meant to be human-reviewed before use.
 """
 import json
 import socket
@@ -13,21 +13,19 @@ def default_machine() -> str:
     return socket.gethostname().lower()
 
 
-def discover_homes(home: Path = None) -> list[dict]:
+def discover_sources(home: Path = None) -> list[dict]:
+    """Every `.claude*` dir with a `projects/` subdir is a source, all
+    personal (synced-eligible) by default. Walling is opt-in via the
+    `private` flag or `private_repos` — never inferred from the dir name."""
     home = Path(home) if home else Path.home()
-    homes = []
+    sources = []
     for child in sorted(home.iterdir()):
         if not child.is_dir() or not child.name.startswith(".claude"):
             continue
         if not (child / "projects").is_dir():
             continue
-        account = "work" if child.name == ".claude" else "personal"
-        homes.append({
-            "path": str(child),
-            "account": account,
-            "walled": account == "work",
-        })
-    return homes
+        sources.append({"path": str(child), "private": False})
+    return sources
 
 
 def build_config(home: Path = None, machine: str = None,
@@ -36,7 +34,7 @@ def build_config(home: Path = None, machine: str = None,
     return {
         "machine": machine or default_machine(),
         "dataDir": str(data_dir),
-        "homes": discover_homes(home),
+        "homes": discover_sources(home),
         "work_repos": [],
         "decisions": {"source": "none"},
         "voice": None,
