@@ -196,7 +196,7 @@ def main(argv=None) -> int:
           + (f" + {c['private']} private (local-only)" if c.get("private") else "")
           + f" sessions on {cfg['machine']}.")
     print(f"Report covers {result['merged_sessions']} sessions across machines "
-          f"(personal merged + this machine's work).")
+          f"(personal merged + this machine's private).")
     print(f"Report: {result['reports']['html']}")
     print(f"Markdown: {result['reports']['md']}")
     nudge = privacy_nudge(cfg)

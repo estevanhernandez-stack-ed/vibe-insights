@@ -1,4 +1,4 @@
-"""Walk config homes, parse session logs, build SessionRecords, write indexes."""
+"""Walk sources, parse session logs, build SessionRecords, write indexes."""
 import json
 import os
 import tempfile
@@ -15,11 +15,11 @@ except ImportError:
 from .records import SessionRecord
 
 
-def locate_session_files(home_paths: list) -> dict:
-    """Map session_id (top-level transcript stem) -> Path, across homes.
+def locate_session_files(source_paths: list) -> dict:
+    """Map session_id (top-level transcript stem) -> Path, across sources.
     Subagent transcripts (under a subagents/ dir) are excluded."""
     out: dict = {}
-    for hp in home_paths:
+    for hp in source_paths:
         for f in discover_under(Path(hp)):
             if f.parent.name == "subagents":
                 continue

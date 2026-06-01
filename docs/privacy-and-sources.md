@@ -83,13 +83,13 @@ vibe-insights --make-private-source ~/.claude-work
 
 `--make-private` and `--make-private-source` write directly to `config.json` and print a confirmation. Run `--privacy` afterward to verify the result.
 
-After a scan where nothing is private, a non-blocking nudge prints:
+After a scan where nothing is private yet, a non-blocking nudge prints — something like:
 
 ```
-Tip: nothing is marked private. Run --privacy to review sources and repos.
+Privacy: all N source(s) are personal (synced-eligible). Keep any local-only? One line — add "private_repos": ["owner/repo"] to advanced in <config path>, or run `vibe-insights --privacy`.
 ```
 
-It's informational — if everything you have is personal, you can ignore it.
+It's informational — if everything you have is personal and synced is fine, you can ignore it.
 
 ## Multi-source worked example
 

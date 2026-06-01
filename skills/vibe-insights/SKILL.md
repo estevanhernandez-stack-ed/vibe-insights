@@ -68,7 +68,7 @@ summarize (output-ceiling discipline).
 
 5. **Report only:** the narrative inline (tight — the highlights, not the whole
    file), then the single `insights.html` path (narrative + all sections in one
-   branded page) and `insights.md`, plus a one-line coverage stat (personal vs work,
+   branded page) and `insights.md`, plus a one-line coverage stat (personal vs private,
    across N machines). Never dump the full report inline.
 
 6. **The privacy boundary.** Private sources and private repos ARE included and

@@ -112,7 +112,7 @@ vibe-insights --make-private owner/repo        # wall a repo
 vibe-insights --make-private-source ~/.claude-work  # wall an entire source directory
 ```
 
-After a scan where nothing is walled, a non-blocking nudge prints reminding you that `--privacy` exists. It's informational — you can ignore it if everything is already personal.
+After a scan where nothing is private yet, a non-blocking nudge prints — something like: `Privacy: all N source(s) are personal (synced-eligible). Keep any local-only? One line — add "private_repos": ["owner/repo"] to advanced in <config path>, or run \`vibe-insights --privacy\`.` It's informational — you can ignore it if you're fine with everything syncing.
 
 ### Back-compat note
 
