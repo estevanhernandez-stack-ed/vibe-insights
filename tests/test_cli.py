@@ -273,3 +273,16 @@ def test_privacy_flag_lists_sources(capsys, tmp_path):
     assert rc == 0
     out = capsys.readouterr().out
     assert "/h/.claude" in out and "personal" in out
+
+
+def test_init_preserves_private_edit_across_reinit(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    (tmp_path / ".claude" / "projects").mkdir(parents=True)
+    (tmp_path / ".claude-work" / "projects").mkdir(parents=True)
+    cfgpath = tmp_path / "config.json"
+    cli.main(["--init", "--config", str(cfgpath)])
+    cli.main(["--make-private-source", str(tmp_path / ".claude-work"), "--config", str(cfgpath)])
+    cli.main(["--init", "--config", str(cfgpath)])   # re-init must NOT clobber the edit
+    raw = json.loads(cfgpath.read_text(encoding="utf-8"))
+    src = {s["path"]: s["private"] for s in raw["advanced"]["sources"]}
+    assert src[str(tmp_path / ".claude-work")] is True

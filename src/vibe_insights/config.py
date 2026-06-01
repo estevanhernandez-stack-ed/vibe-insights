@@ -81,6 +81,36 @@ def write_config(config_path: Path, cfg: dict) -> None:
         json.dump(cfg, f, indent=2)
 
 
+def init_config(config_path: Path, rediscover: bool = False, home: Path = None) -> dict:
+    """Config to write on --init. Fresh discovery (all personal) when no config
+    exists. When a config exists, PRESERVE the user's privacy edits — per-source
+    `private` flags, `private_repos`, and core fields — and fold in any newly
+    discovered sources as personal (so --init is sticky, not destructive).
+    `rediscover=True` re-scans the source list fresh (all personal) but still
+    keeps core fields + private_repos."""
+    if not Path(config_path).exists():
+        return build_config(home=home)
+    with open(config_path, encoding="utf-8") as f:
+        norm = normalize_config(json.load(f))
+    discovered = discover_sources(home)
+    if rediscover:
+        sources = discovered
+    else:
+        existing_private = {s["path"]: s["private"] for s in norm["sources"]}
+        discovered_paths = {s["path"] for s in discovered}
+        sources = [{"path": s["path"], "private": existing_private.get(s["path"], False)}
+                   for s in discovered]
+        # keep configured sources discovery didn't see (e.g. dir temporarily absent)
+        for s in norm["sources"]:
+            if s["path"] not in discovered_paths:
+                sources.append({"path": s["path"], "private": s["private"]})
+    return {
+        "machine": norm["machine"], "dataDir": norm["dataDir"],
+        "decisions": norm["decisions"], "voice": norm["voice"],
+        "advanced": {"sources": sources, "private_repos": norm["private_repos"]},
+    }
+
+
 def set_private(config_path: Path, repo: str = None, source: str = None) -> dict:
     """Mark a repo (added to advanced.private_repos) or a source (its private
     flag set True) as local-only. Writes the new-schema `advanced` block,

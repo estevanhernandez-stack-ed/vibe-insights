@@ -112,3 +112,50 @@ def test_set_private_source_marks_private(tmp_path):
     raw = json.loads(p.read_text(encoding="utf-8"))
     src = {s["path"]: s for s in raw["advanced"]["sources"]}
     assert src[str(tmp_path / ".claude-work")]["private"] is True
+
+
+def test_init_config_preserves_private_edits(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    _make_home(tmp_path, ".claude")
+    _make_home(tmp_path, ".claude-work")
+    p = tmp_path / "config.json"
+    config.write_config(p, config.init_config(p))          # fresh: both personal
+    config.set_private(p, source=str(tmp_path / ".claude-work"))
+    cfg = config.init_config(p)                            # re-init, NO rediscover
+    src = {s["path"]: s["private"] for s in cfg["advanced"]["sources"]}
+    assert src[str(tmp_path / ".claude-work")] is True      # preserved
+    assert src[str(tmp_path / ".claude")] is False
+
+
+def test_init_config_folds_in_new_source_as_personal(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    _make_home(tmp_path, ".claude")
+    p = tmp_path / "config.json"
+    config.write_config(p, config.init_config(p))
+    config.set_private(p, source=str(tmp_path / ".claude"))
+    _make_home(tmp_path, ".claude-new")                    # appears later
+    cfg = config.init_config(p)
+    src = {s["path"]: s["private"] for s in cfg["advanced"]["sources"]}
+    assert src[str(tmp_path / ".claude")] is True           # preserved
+    assert src[str(tmp_path / ".claude-new")] is False      # new -> personal
+
+
+def test_init_config_rediscover_resets_sources_keeps_repos(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    _make_home(tmp_path, ".claude")
+    p = tmp_path / "config.json"
+    config.write_config(p, config.init_config(p))
+    config.set_private(p, source=str(tmp_path / ".claude"))
+    config.set_private(p, repo="owner/api")
+    cfg = config.init_config(p, rediscover=True)
+    src = {s["path"]: s["private"] for s in cfg["advanced"]["sources"]}
+    assert src[str(tmp_path / ".claude")] is False          # rediscover resets source flags
+    assert cfg["advanced"]["private_repos"] == ["owner/api"] # but private_repos preserved
+
+
+def test_init_config_fresh_when_no_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    _make_home(tmp_path, ".claude")
+    p = tmp_path / "config.json"  # does not exist yet
+    cfg = config.init_config(p)
+    assert cfg["advanced"]["sources"] == [{"path": str(tmp_path / ".claude"), "private": False}]

@@ -64,6 +64,8 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="vibe-insights")
     parser.add_argument("--init", action="store_true",
                         help="discover sources and write config.json for review")
+    parser.add_argument("--rediscover", action="store_true",
+                        help="with --init: re-scan sources from scratch, discarding per-source private flags")
     parser.add_argument("--render-only", action="store_true",
                         help="re-render reports from existing index + digest + narrative, no re-scan")
     parser.add_argument("--emit-tagging-input", action="store_true",
@@ -149,7 +151,7 @@ def main(argv=None) -> int:
         return 0
 
     if args.init:
-        cfg = config_mod.build_config()
+        cfg = config_mod.init_config(config_path, rediscover=args.rediscover)
         config_mod.write_config(config_path, cfg)
         print(f"Wrote {config_path}")
         print(json.dumps(cfg, indent=2))
