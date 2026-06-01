@@ -228,3 +228,36 @@ def test_init_writes_advanced_sources(tmp_path, monkeypatch):
     raw = json.loads(cfgpath.read_text(encoding="utf-8"))
     assert raw["advanced"]["sources"] == [
         {"path": str(tmp_path / ".claude"), "private": False}]
+
+
+def test_privacy_nudge_shown_when_nothing_private(capsys, tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    d = tmp_path / ".claude" / "projects" / "C--repo"
+    d.mkdir(parents=True)
+    (d / "s1.jsonl").write_text(json.dumps(
+        {"type": "assistant", "sessionId": "s1", "timestamp": "2026-05-20T10:00:00Z",
+         "cwd": "C:/repo", "message": {"model": "x", "usage": {"input_tokens": 1, "output_tokens": 1}}}) + "\n",
+        encoding="utf-8")
+    cfgpath = tmp_path / "config.json"
+    cli.main(["--init", "--config", str(cfgpath)])
+    cli.main(["--config", str(cfgpath)])
+    out = capsys.readouterr().out
+    assert "local-only" in out and "private_repos" in out
+
+
+def test_privacy_nudge_absent_when_something_private(capsys, tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    d = tmp_path / ".claude" / "projects" / "C--repo"
+    d.mkdir(parents=True)
+    (d / "s1.jsonl").write_text(json.dumps(
+        {"type": "assistant", "sessionId": "s1", "timestamp": "2026-05-20T10:00:00Z",
+         "cwd": "C:/repo", "message": {"model": "x", "usage": {"input_tokens": 1, "output_tokens": 1}}}) + "\n",
+        encoding="utf-8")
+    cfgpath = tmp_path / "config.json"
+    cfgpath.write_text(json.dumps({"machine": "m", "dataDir": str(tmp_path / "data"),
+        "decisions": {"source": "none"}, "voice": None,
+        "advanced": {"sources": [{"path": str(tmp_path / ".claude"), "private": False}],
+                     "private_repos": ["something"]}}), encoding="utf-8")
+    cli.main(["--config", str(cfgpath)])
+    out = capsys.readouterr().out
+    assert "private_repos" not in out  # already using privacy -> no nudge

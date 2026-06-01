@@ -46,6 +46,20 @@ def run(cfg: dict, repo_filter: str | None = None) -> dict:
             "merged_sessions": len(report_set), "digest": str(Path(cfg["dataDir"]) / "digest.json")}
 
 
+def privacy_nudge(cfg: dict) -> str | None:
+    """A one-line, non-blocking hint shown when nothing is walled yet, so a
+    user who never considered local-only sees it once. Returns None when the
+    user already uses privacy (any private source or any private_repos)."""
+    any_private = (bool(cfg.get("private_repos"))
+                   or any(s.get("private") for s in cfg.get("sources", [])))
+    if any_private:
+        return None
+    n = len(cfg.get("sources", []))
+    return (f"Privacy: all {n} source(s) are personal (synced-eligible). "
+            f"Keep any local-only? One line — add \"private_repos\": [\"owner/repo\"] "
+            f"to advanced in {DEFAULT_CONFIG}, or run `vibe-insights --privacy`.")
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="vibe-insights")
     parser.add_argument("--init", action="store_true",
@@ -156,6 +170,9 @@ def main(argv=None) -> int:
           f"(personal merged + this machine's work).")
     print(f"Report: {result['reports']['html']}")
     print(f"Markdown: {result['reports']['md']}")
+    nudge = privacy_nudge(cfg)
+    if nudge:
+        print(nudge)
     return 0
 
 
