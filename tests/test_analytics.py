@@ -47,10 +47,17 @@ def test_trends_acceleration():
 
 
 def test_pick_back_up_feature_branches_dedup():
+    # Dates are relative to now: pick_back_up excludes prune candidates at
+    # age_days >= 21, so hardcoded dates rot this test as real time passes.
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+    newer = (now - timedelta(days=2)).isoformat()
+    older = (now - timedelta(days=9)).isoformat()
+    other = (now - timedelta(days=3)).isoformat()
     sessions = [
-        _s(repo="A", branch="feat/x", last_ts="2026-05-10T12:00:00+00:00", title="newer"),
-        _s(repo="A", branch="feat/x", last_ts="2026-05-01T12:00:00+00:00", title="older"),
-        _s(repo="B", branch="main", last_ts="2026-05-09T12:00:00+00:00"),
+        _s(repo="A", branch="feat/x", last_ts=newer, title="newer"),
+        _s(repo="A", branch="feat/x", last_ts=older, title="older"),
+        _s(repo="B", branch="main", last_ts=other),
     ]
     pb = analytics.pick_back_up(sessions)
     assert len(pb) == 1
