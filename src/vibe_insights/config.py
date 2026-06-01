@@ -72,7 +72,7 @@ def normalize_config(cfg: dict) -> dict:
 
 def load_config(config_path: Path) -> dict:
     with open(config_path, encoding="utf-8") as f:
-        return json.load(f)
+        return normalize_config(json.load(f))
 
 
 def write_config(config_path: Path, cfg: dict) -> None:

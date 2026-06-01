@@ -1,4 +1,5 @@
 # tests/test_config.py
+import json
 from pathlib import Path
 
 from vibe_insights import config
@@ -79,3 +80,15 @@ def test_normalize_no_advanced_discovers_personal(tmp_path, monkeypatch):
     norm = config.normalize_config(cfg)
     assert norm["sources"] == [{"path": str(tmp_path / ".claude"), "private": False}]
     assert norm["private_repos"] == []
+
+
+def test_load_config_returns_normalized(tmp_path):
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({
+        "machine": "m", "dataDir": "/d",
+        "homes": [{"path": "/h/.claude", "account": "work", "walled": True}],
+        "work_repos": ["e/r"], "decisions": {"source": "none"}, "voice": None,
+    }), encoding="utf-8")
+    cfg = config.load_config(p)
+    assert cfg["sources"] == [{"path": "/h/.claude", "private": True}]
+    assert cfg["private_repos"] == ["e/r"]
