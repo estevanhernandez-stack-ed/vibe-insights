@@ -1,6 +1,6 @@
 ---
 name: vibe-insights
-description: Cross-home, cross-machine retrospective insights for Claude Code. Run when the user says "/vibe-insights", "where was I", "what was I working on", or wants coverage / token-burn / recall across their config homes and machines. Walls work (employer) sessions from personal.
+description: Cross-machine retrospective insights for Claude Code. Run when the user says "/vibe-insights", "where was I", "what was I working on", or wants coverage / token-burn / recall across their sources and machines. Personal by default; private sources and repos stay local-only.
 ---
 
 # vibe-insights
@@ -12,10 +12,14 @@ summarize (output-ceiling discipline).
 ## Steps
 
 1. **Ensure config.** If `~/.vibe-insights/config.json` is missing, run
-   `vibe-insights --init`, show the discovered homes + account labels, and ask the
-   user to confirm the mapping. Config also carries `work_repos` (employer repos →
-   labeled work, kept local-only) and a `decisions` block
-   (`{"source": "none"|"file"|"mcp"}`).
+   `vibe-insights --init`, show the discovered sources, and ask the user to confirm
+   the config. Every discovered `~/.claude*` source is personal by default —
+   no walling is required to get started. Config also carries an optional `advanced`
+   block (`advanced.sources` with per-source `private` flags, `advanced.private_repos`
+   for individual repos to keep local-only) and a `decisions` block
+   (`{"source": "none"|"file"|"mcp"}`). After a scan where nothing is private, a
+   non-blocking nudge prints reminding the user that `--privacy` exists — it's
+   informational, not an error.
 
 2. **Decisions (MCP-agnostic — only the skill ever touches MCP).** Read
    `config.decisions.source`:
@@ -35,9 +39,9 @@ summarize (output-ceiling discipline).
 
 3. **Run the engine.** `vibe-insights` (or `python -m vibe_insights.cli`). It
    writes per-machine personal indexes under `synced/`, the local-only
-   `index.work.local.json`, `digest.json`, and the deterministic report
-   (`reports/insights.{md,html}` — Coverage, Where was I, Token & cost, Trends,
-   Pick this back up, Decisions).
+   `index.private.local.json` (for any private sources or repos), `digest.json`,
+   and the deterministic report (`reports/insights.{md,html}` — Coverage, Where was
+   I, Token & cost, Trends, Pick this back up, Decisions).
 
 4. **Synthesize the narrative.** Read `~/.vibe-insights/digest.json` and write a
    2–4 paragraph "How you actually work" read. Ground every claim in digest numbers
@@ -67,10 +71,11 @@ summarize (output-ceiling discipline).
    branded page) and `insights.md`, plus a one-line coverage stat (personal vs work,
    across N machines). Never dump the full report inline.
 
-6. **The boundary.** Work sessions ARE included and labeled in the local report (so
-   all your work is viewable), but the work shard (`index.work.local.json`) is
-   **local-only**: it never syncs cross-machine (only `synced/` replicates) and never
-   gets pushed to git. Don't publish work content to external/public surfaces.
+6. **The privacy boundary.** Private sources and private repos ARE included and
+   labeled in the local report (so all your sessions are viewable locally), but
+   the private shard (`index.private.local.json`) is **local-only**: it never syncs
+   cross-machine (only `synced/` replicates) and never gets pushed to git. Don't
+   publish private session content to external or public surfaces.
 
 ## Voice
 
