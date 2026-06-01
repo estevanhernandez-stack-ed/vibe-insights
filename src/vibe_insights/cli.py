@@ -23,19 +23,12 @@ DEFAULT_CONFIG = Path.home() / ".vibe-insights" / "config.json"
 
 def run(cfg: dict, repo_filter: str | None = None) -> dict:
     machine = cfg["machine"]
-    records = scan_mod.build_records(cfg["homes"], machine=machine,
-                                     work_repos=cfg.get("work_repos", []))
+    records = scan_mod.build_records(cfg["sources"], machine=machine,
+                                     private_repos=cfg.get("private_repos", []))
     counts = scan_mod.write_indexes(records, cfg["dataDir"], machine)
     merged = merge_mod.load_merged(Path(cfg["dataDir"]) / "synced")
-    # Load this machine's local work shard and combine for the report/digest
-    work_local = []
-    wpath = Path(cfg["dataDir"]) / "index.work.local.json"
-    if wpath.exists():
-        try:
-            work_local = json.loads(wpath.read_text(encoding="utf-8")).get("sessions", [])
-        except (OSError, json.JSONDecodeError):
-            work_local = []
-    report_set = merged + work_local
+    private_local = scan_mod.read_local_private_index(cfg["dataDir"])
+    report_set = merged + private_local
     if repo_filter:
         rf = repo_filter.strip().lower()
         report_set = [s for s in report_set if (s.get("repo") or "").lower() == rf]
@@ -79,15 +72,7 @@ def main(argv=None) -> int:
             return 1
         cfg = config_mod.load_config(config_path)
         data_dir = Path(cfg["dataDir"])
-        merged = merge_mod.load_merged(data_dir / "synced")
-        work_local = []
-        wpath = data_dir / "index.work.local.json"
-        if wpath.exists():
-            try:
-                work_local = json.loads(wpath.read_text(encoding="utf-8")).get("sessions", [])
-            except (OSError, json.JSONDecodeError):
-                work_local = []
-        report_set = merged + work_local
+        report_set = merge_mod.load_merged(data_dir / "synced") + scan_mod.read_local_private_index(data_dir)
         rf = args.story_input.strip().lower()
         scoped = [s for s in report_set if (s.get("repo") or "").lower() == rf]
         all_decs = decisions_mod.load_decisions(cfg.get("decisions"), data_dir)
@@ -105,20 +90,12 @@ def main(argv=None) -> int:
             return 1
         cfg = config_mod.load_config(config_path)
         data_dir = Path(cfg["dataDir"])
-        merged = merge_mod.load_merged(data_dir / "synced")
-        work_local = []
-        wpath = data_dir / "index.work.local.json"
-        if wpath.exists():
-            try:
-                work_local = json.loads(wpath.read_text(encoding="utf-8")).get("sessions", [])
-            except (OSError, json.JSONDecodeError):
-                work_local = []
-        report_set = merged + work_local
+        report_set = merge_mod.load_merged(data_dir / "synced") + scan_mod.read_local_private_index(data_dir)
         cache = tagging_mod.load_cache(data_dir / "tags.cache.json")
         todo = tagging_mod.untagged(report_set, cache)
         if args.limit:
             todo = todo[:args.limit]
-        files = scan_mod.locate_session_files([h["path"] for h in cfg["homes"]])
+        files = scan_mod.locate_session_files([s["path"] for s in cfg["sources"]])
         out = []
         for s in todo:
             sid = s.get("session_id")
@@ -139,15 +116,7 @@ def main(argv=None) -> int:
             return 1
         cfg = config_mod.load_config(config_path)
         data_dir = Path(cfg["dataDir"])
-        merged = merge_mod.load_merged(data_dir / "synced")
-        work_local = []
-        wpath = data_dir / "index.work.local.json"
-        if wpath.exists():
-            try:
-                work_local = json.loads(wpath.read_text(encoding="utf-8")).get("sessions", [])
-            except (OSError, json.JSONDecodeError):
-                work_local = []
-        report_set = merged + work_local
+        report_set = merge_mod.load_merged(data_dir / "synced") + scan_mod.read_local_private_index(data_dir)
         digest = None
         dpath = data_dir / "digest.json"
         if dpath.exists():

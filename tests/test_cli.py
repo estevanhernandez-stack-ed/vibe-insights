@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from vibe_insights import cli
+from vibe_insights import config as config_mod
 
 
 def _write_session(home, root, project, sid, lines):
@@ -19,8 +20,8 @@ def test_run_produces_index_and_reports(tmp_path):
                      "message": {"model": "claude-opus-4-7",
                                  "usage": {"input_tokens": 10, "output_tokens": 2}}}])
     cfg = {"machine": "testbox", "dataDir": str(tmp_path / "data"),
-           "homes": [{"path": str(tmp_path / ".claude-personal"),
-                      "account": "personal", "walled": False}]}
+           "sources": [{"path": str(tmp_path / ".claude-personal"), "private": False}],
+           "private_repos": []}
     result = cli.run(cfg)
     assert (Path(cfg["dataDir"]) / "synced" / "testbox" / "index.json").exists()
     assert Path(result["reports"]["md"]).exists()
@@ -67,19 +68,19 @@ def test_run_includes_work_in_report(tmp_path):
                      "cwd": "C:/x/pricescout-react", "message": {"model": "m",
                      "usage": {"input_tokens": 5, "output_tokens": 1}}}])
     cfg = {"machine": "m", "dataDir": str(tmp_path / "data"),
-           "work_repos": ["pricescout-react"],
-           "homes": [{"path": str(tmp_path / ".claude"), "account": "work", "walled": True}]}
+           "private_repos": ["pricescout-react"],
+           "sources": [{"path": str(tmp_path / ".claude"), "private": True}]}
     result = cli.run(cfg)
     # personal index synced; work index local
     data = tmp_path / "data"
     personal = json.loads((data / "synced" / "m" / "index.json").read_text())["sessions"]
-    work = json.loads((data / "index.work.local.json").read_text())["sessions"]
+    work = json.loads((data / "index.private.local.json").read_text())["sessions"]
     assert [s["session_id"] for s in personal] == ["personal1"]
     assert [s["session_id"] for s in work] == ["work1"]
     # BOTH appear in the report's accounts (work is viewable, not hidden)
     md = (data / "reports" / "insights.md").read_text()
     assert "work" in md and "personal" in md
-    assert result["counts"] == {"personal": 1, "work": 1}
+    assert result["counts"] == {"personal": 1, "private": 1}
 
 
 def test_run_attaches_decisions_from_file(tmp_path):
@@ -92,8 +93,8 @@ def test_run_attaches_decisions_from_file(tmp_path):
     dec.write_text(json.dumps({"timestamp": "2026-05-22T10:00:00", "title": "Chose repo-based wall"}) + "\n",
                    encoding="utf-8")
     cfg = {"machine": "m", "dataDir": str(tmp_path / "data"),
-           "homes": [{"path": str(tmp_path / ".claude-personal"), "account": "personal", "walled": False}],
-           "work_repos": [], "decisions": {"source": "file", "path": str(dec)}}
+           "sources": [{"path": str(tmp_path / ".claude-personal"), "private": False}],
+           "private_repos": [], "decisions": {"source": "file", "path": str(dec)}}
     cli.run(cfg)
     digest = json.loads((tmp_path / "data" / "digest.json").read_text())
     assert any(d["title"] == "Chose repo-based wall" for d in digest.get("decisions", []))
@@ -110,8 +111,8 @@ def test_run_writes_digest_json(tmp_path):
                      "message": {"model": "claude-opus-4-7",
                                  "usage": {"input_tokens": 10, "output_tokens": 2}}}])
     cfg = {"machine": "testbox", "dataDir": str(tmp_path / "data"),
-           "homes": [{"path": str(tmp_path / ".claude-personal"),
-                      "account": "personal", "walled": False}]}
+           "sources": [{"path": str(tmp_path / ".claude-personal"), "private": False}],
+           "private_repos": []}
     cli.run(cfg)
     digest_path = tmp_path / "data" / "digest.json"
     assert digest_path.exists()
@@ -154,8 +155,8 @@ def test_run_repo_filter(tmp_path):
                    [{"type": "assistant", "sessionId": "s2", "timestamp": "2026-05-23T12:00:00Z",
                      "cwd": "C:/x/Celestia3", "message": {"model": "m",
                      "usage": {"input_tokens": 5, "output_tokens": 1}}}])
-    cfg = {"machine": "m", "dataDir": str(tmp_path / "data"), "work_repos": [],
-           "homes": [{"path": str(tmp_path / ".claude-personal"), "account": "personal", "walled": False}]}
+    cfg = {"machine": "m", "dataDir": str(tmp_path / "data"), "private_repos": [],
+           "sources": [{"path": str(tmp_path / ".claude-personal"), "private": False}]}
     result = cli.run(cfg, repo_filter="rororoblox")  # case-insensitive
     digest = json.loads((tmp_path / "data" / "digest.json").read_text())
     # only the ROROROblox session counts
@@ -196,9 +197,23 @@ def test_run_merges_tag_cache(tmp_path):
         "s1": {"friction": "none", "satisfaction": "satisfied",
                "outcome": "fully_achieved", "session_type": "feature", "last_ts": "x"}}),
         encoding="utf-8")
-    cfg = {"machine": "m", "dataDir": str(data), "work_repos": [],
-           "homes": [{"path": str(tmp_path / ".claude-personal"), "account": "personal", "walled": False}]}
+    cfg = {"machine": "m", "dataDir": str(data), "private_repos": [],
+           "sources": [{"path": str(tmp_path / ".claude-personal"), "private": False}]}
     cli.run(cfg)
     digest = json.loads((data / "digest.json").read_text())
     assert digest["tags"]["tagged"] == 1
     assert digest["tags"]["outcome"]["fully_achieved"] == 1
+
+
+def test_run_personal_by_default_single_source(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    d = tmp_path / ".claude" / "projects" / "C--repo"
+    d.mkdir(parents=True)
+    (d / "s1.jsonl").write_text(json.dumps(
+        {"type": "assistant", "sessionId": "s1", "timestamp": "2026-05-20T10:00:00Z",
+         "cwd": "C:/repo", "message": {"model": "claude-opus-4-7",
+         "usage": {"input_tokens": 10, "output_tokens": 1}}}) + "\n", encoding="utf-8")
+    cfg = config_mod.normalize_config({"machine": "m", "dataDir": str(tmp_path / "data"),
+                                       "decisions": {"source": "none"}, "voice": None})
+    result = cli.run(cfg)
+    assert result["counts"] == {"personal": 1, "private": 0}
