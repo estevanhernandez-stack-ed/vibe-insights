@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 @dataclass
 class SessionRecord:
     session_id: str
-    account: str            # "work" | "personal"
+    account: str            # "personal" | "private"
     machine: str
     walled: bool
     repo: str = ""

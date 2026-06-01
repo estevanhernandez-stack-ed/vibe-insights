@@ -158,32 +158,33 @@ def ingest_event(records: dict, ev: dict, account: str, machine: str,
         rec._last_asst_ts = ev.get("timestamp")
 
 
-def is_work_repo(repo: str, work_repos) -> bool:
-    if not repo or not work_repos:
+def is_private_repo(repo: str, private_repos) -> bool:
+    if not repo or not private_repos:
         return False
     r = repo.strip().lower()
-    return any(r == str(w).strip().lower() for w in work_repos)
+    return any(r == str(w).strip().lower() for w in private_repos)
 
 
-def build_records(homes: list[dict], machine: str, work_repos=()) -> dict:
-    """Walk every home's logs (recursively, incl. subagent transcripts) and
+def build_records(sources: list[dict], machine: str, private_repos=()) -> dict:
+    """Walk every source's logs (recursively, incl. subagent transcripts) and
     fold into records by session id. Subagent events carry the parent
-    sessionId, so their burn folds into the parent session automatically.
+    sessionId, so their burn folds into the parent automatically.
 
-    When work_repos is provided, each record's walled/account is reclassified
-    by repo name rather than home. Sessions whose repo matches a work_repos
-    entry are walled (work); all others become personal."""
+    Each source's `private` flag sets the initial wall. When private_repos is
+    provided, records are then reclassified by repo name: a session whose repo
+    matches a private_repos entry is private (local-only); all others personal."""
     records: dict = {}
-    for home in homes:
-        for f in discover_under(Path(home["path"])):
+    for src in sources:
+        private = bool(src.get("private", False))
+        account = "private" if private else "personal"
+        for f in discover_under(Path(src["path"])):
             for ev in iter_raw_events(f):
-                ingest_event(records, ev, account=home["account"],
-                             machine=machine, walled=home["walled"],
-                             default_sid=f.stem)
-    if work_repos:
+                ingest_event(records, ev, account=account, machine=machine,
+                             walled=private, default_sid=f.stem)
+    if private_repos:
         for rec in records.values():
-            rec.walled = is_work_repo(rec.repo, work_repos)
-            rec.account = "work" if rec.walled else "personal"
+            rec.walled = is_private_repo(rec.repo, private_repos)
+            rec.account = "private" if rec.walled else "personal"
     return records
 
 
