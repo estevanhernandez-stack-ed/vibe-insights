@@ -269,9 +269,9 @@ tbody tr:hover{background:rgba(23,212,250,.05)}
 .narrative ol,.narrative ul{color:var(--fg2);line-height:1.6;padding-left:20px}
 .narrative li{margin:6px 0}
 .narrative code{font-family:'JetBrains Mono',monospace;font-size:13px;background:rgba(23,212,250,.10);color:#5ce6ff;padding:1px 5px;border-radius:4px}
-.tile.work{border-color:rgba(242,47,137,.40)}
-.tile.work .tl{color:var(--mag)}
-.tile.work .tn{color:var(--fg)}
+.tile.private{border-color:rgba(242,47,137,.40)}
+.tile.private .tl{color:var(--mag)}
+.tile.private .tn{color:var(--fg)}
 </style>"""
 
 
@@ -295,7 +295,7 @@ def render_html(sessions: list[dict], digest: dict | None = None, narrative_html
     machines = len({r["machine"] for r in cov})
     total = sum(r["sessions"] for r in cov)
     cov_tiles = "".join(
-        f"<div class='tile{' work' if r['account'] == 'work' else ''}'>"
+        f"<div class='tile{' private' if r['account'] == 'private' else ''}'>"
         f"<div class='tl'>{esc(r['machine'])} &middot; {esc(r['account'])}</div>"
         f"<div class='tn'>{r['sessions']}</div>"
         f"<div class='ts'>{r['repos']} repos &middot; {r['human_tokens']:,} burn</div></div>"
@@ -479,7 +479,7 @@ def render_html(sessions: list[dict], digest: dict | None = None, narrative_html
         "<meta name='viewport' content='width=device-width,initial-scale=1'>"
         "<title>vibe-insights</title>" + _CSS + "</head><body><div class='wrap'>"
         "<header class='hero'><div class='mark'>vibe<span>&middot;</span>insights</div>"
-        f"<div class='meta'>{total} personal sessions &middot; {machines} machine(s) &middot; work walled</div></header>"
+        f"<div class='meta'>{total} personal sessions &middot; {machines} machine(s)</div></header>"
         + narr
         + "<section class='card'><div class='kick'>Coverage</div>"
         f"<div class='tiles'>{cov_tiles}</div></section>"

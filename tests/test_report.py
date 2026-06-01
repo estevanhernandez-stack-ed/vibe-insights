@@ -260,3 +260,12 @@ def test_render_prune_candidates_omitted_when_empty():
     assert "OldThing" not in html
     # pick-back-up still renders
     assert "Pick this back up" in html
+
+
+def test_html_uses_private_vocabulary_not_work():
+    sessions = [{"account": "private", "machine": "m", "repo": "r",
+                 "human_tokens": 10, "last_ts": "2026-05-20T10:00:00"}]
+    html = report.render_html(sessions, digest=None)
+    assert "work walled" not in html
+    # the private tile gets the accent class
+    assert "tile private" in html
