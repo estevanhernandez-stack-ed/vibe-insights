@@ -1,8 +1,13 @@
 {
-  "machine": "my-machine",
+  "machine": "laptop-01",
   "dataDir": "~/.vibe-insights",
-  "homes": [
-    { "path": "~/.claude", "account": "work", "walled": true },
-    { "path": "~/.claude-personal", "account": "personal", "walled": false }
-  ]
+  "decisions": { "source": "none" },
+  "voice": null,
+  "advanced": {
+    "sources": [
+      { "path": "~/.claude", "private": false },
+      { "path": "~/.claude-work", "private": true }
+    ],
+    "private_repos": ["owner/employer-repo"]
+  }
 }
