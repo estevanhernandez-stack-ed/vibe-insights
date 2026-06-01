@@ -1,7 +1,7 @@
 {
   "name": "vibe-insights",
-  "version": "0.1.0",
-  "description": "Vibe Insights — cross-machine, work-walled Claude Code session analytics. Coverage, where-was-I recall, token/cost (incl. the cache reveal), trends, decisions, languages, per-session friction/satisfaction/outcome, and a native-grade narrative read. MCP-agnostic decisions overlay.",
+  "version": "0.3.0",
+  "description": "Vibe Insights — the deep retrospective for your Claude Code work. Coverage, where-was-I recall, token/cost (incl. the cache reveal), trends, how-you-work, ranked open threads, decisions, languages, per-session friction/satisfaction/outcome, and a synthesized narrative read. Across your full history and every machine you code on. Personal by default; optionally keep chosen sources or repos local-only. No telemetry, all local. MCP-agnostic decisions overlay.",
   "author": {
     "name": "626Labs LLC",
     "url": "https://github.com/estevanhernandez-stack-ed"
