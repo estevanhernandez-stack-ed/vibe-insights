@@ -21,7 +21,7 @@ summarize (output-ceiling discipline).
    non-blocking nudge prints reminding the user that `--privacy` exists — it's
    informational, not an error.
 
-2. **Decisions (MCP-agnostic — only the skill ever touches MCP).** Read
+2. **Decisions (MCP-agnostic — only the skill ever touches MCP; implements the [family decision-log convention](https://github.com/estevanhernandez-stack-ed/vibe-plugins/blob/main/docs/conventions/decision-log-backend.md)).** Read
    `config.decisions.source`:
    - `none` / `file` → do nothing; the engine reads it directly.
    - `mcp` → fetch from the user's configured decisions MCP, map each to the
