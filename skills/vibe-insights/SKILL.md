@@ -77,6 +77,33 @@ summarize (output-ceiling discipline).
    cross-machine (only `synced/` replicates) and never gets pushed to git. Don't
    publish private session content to external or public surfaces.
 
+## Operating doctrine
+
+Family procedure layer — full anatomy per move in the [canonical doctrine](https://github.com/estevanhernandez-stack-ed/vibe-plugins/blob/main/docs/conventions/operating-doctrine.md).
+
+```
+Operating doctrine digest — operating-doctrine v1.0.0 (2026-07-06):
+1. Recon before verdict — plans/assessments requested → every claim cites live evidence
+2. Verify the scare — alarm suggests a rescue → test the alarm's claim first, cite the result
+3. Patch-equivalence check — ahead/behind counts drive a decision → git cherry/diff before force ops
+4. Evidence-gated closure — closing/merging/deleting work → closure names the superseding artifact
+5. Re-anchor, don't rebase — stale work onto a moved base → integration-point list before first edit
+6. Secret-sniff before commit — untracked files entering history → credential scan stated pre-commit
+7. Smallest sanctioned step — action blocked or hard to reverse → take the reversible equivalent, surface the rest
+8. Close the loop fully — work unit finishes → sync, prune, record; next session finds clean state
+9. Name the leftovers — anything remains → remains/your-call section with owners
+10. Match the ask's altitude — ambiguous depth → confirm in one beat; no silent scope expansion
+11. Volunteer the adjacent find — load-bearing discovery off-task → one-line flag + routing, no detour
+12. Contradiction stop — evidence contradicts a prior conclusion → name it, re-verify, reconcile before proceeding
+```
+
+### Domain overlay — vibe-insights' load-bearing moves
+
+- **1. Recon before verdict — recall answers come from the engine, never from model memory.** "Where was I" resolves from the live scan's digest; every recall claim cites the session it came from (date, source, repo). A model's remembered impression of prior sessions is not a source.
+- **12. Contradiction stop — when the numbers contradict the user's memory, name the mechanism.** "I definitely worked on X last week" vs an empty scan means: source not mounted, privacy wall excluding it, or view mismatch — say which, with evidence, before concluding the work didn't happen. Canonical instance: the burn view bundles subagent transcripts, so per-model attribution disputes resolve against raw transcripts, not burn totals.
+
+*Provenance: operating-doctrine v1.0.0 (2026-07-06).*
+
 ## Voice
 
 If `config.voice` is set, write the narrative read, the Next-moves copy, AND the
