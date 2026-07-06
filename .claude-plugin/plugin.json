@@ -1,6 +1,6 @@
 {
   "name": "vibe-insights",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Vibe Insights — the deep retrospective for your Claude Code work. Coverage, where-was-I recall, token/cost (incl. the cache reveal), trends, how-you-work, ranked open threads, decisions, languages, per-session friction/satisfaction/outcome, and a synthesized narrative read. Across your full history and every machine you code on. Personal by default; optionally keep chosen sources or repos local-only. No telemetry, all local. MCP-agnostic decisions overlay.",
   "author": {
     "name": "626Labs LLC",
