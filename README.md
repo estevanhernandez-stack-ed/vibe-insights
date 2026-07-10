@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/brand/icon.svg" width="120" alt="vibe-insights mark"></p>
+
 <p align="center">
   <img alt="Vibe Insights — deep retrospective for your Claude Code work" src="https://626labs.dev/assets/brand/plugins/vibe-insights-banner-1500x500.png" />
 </p>
