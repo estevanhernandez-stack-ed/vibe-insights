@@ -29,6 +29,9 @@ class SessionRecord:
     file_exts: Dict[str, int] = field(default_factory=dict)
     tool_errors: int = 0
     response_buckets: Dict[str, int] = field(default_factory=dict)
+    # Local-date -> input+output burn, so a session resumed across weeks is
+    # attributed to the days it was actually active, not just last_ts.
+    burn_by_day: Dict[str, int] = field(default_factory=dict)
     _last_asst_ts: Optional[str] = None
 
     @property

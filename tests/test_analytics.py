@@ -455,3 +455,18 @@ def test_resume_keywords_multiword_phrases():
     assert _resume("left off at the parser") is True
     assert _resume("pick up the migration") is True
     assert _resume("still in progress") is True
+
+
+def test_trends_uses_burn_by_day_when_present():
+    # A long-running session spreads across its active days; a legacy record
+    # (no burn_by_day) still books to last_ts.
+    sessions = [
+        _s(session_id="long", last_ts="2026-09-14T12:00:00+00:00", human_tokens=1060,
+           burn_by_day={"2026-06-26": 1000, "2026-07-15": 50, "2026-09-14": 10}),
+        _s(session_id="legacy", last_ts="2026-09-14T12:00:00+00:00", human_tokens=5),
+    ]
+    tr = analytics.trends(sessions)
+    assert tr["by_day"]["2026-06-26"] == {"sessions": 1, "burn": 1000}
+    assert tr["by_day"]["2026-07-15"] == {"sessions": 1, "burn": 50}
+    assert tr["by_day"]["2026-09-14"] == {"sessions": 2, "burn": 15}
+    assert sum(d["burn"] for d in tr["by_day"].values()) == 1065

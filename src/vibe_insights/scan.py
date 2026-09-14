@@ -2,6 +2,7 @@
 import json
 import os
 import tempfile
+from datetime import timezone
 from pathlib import Path
 
 try:
@@ -129,8 +130,13 @@ def ingest_event(records: dict, ev: dict, account: str, machine: str,
         if model and model not in rec.models:
             rec.models.append(model)
         usage = msg.get("usage") or {}
-        rec.tokens_input += int(usage.get("input_tokens") or 0)
-        rec.tokens_output += int(usage.get("output_tokens") or 0)
+        u_in = int(usage.get("input_tokens") or 0)
+        u_out = int(usage.get("output_tokens") or 0)
+        rec.tokens_input += u_in
+        rec.tokens_output += u_out
+        if ts is not None and (u_in or u_out):
+            day = _local_day(ts)
+            rec.burn_by_day[day] = rec.burn_by_day.get(day, 0) + u_in + u_out
         rec.tokens_cache_creation += int(usage.get("cache_creation_input_tokens") or 0)
         rec.tokens_cache_read += int(usage.get("cache_read_input_tokens") or 0)
         stu = usage.get("server_tool_use") or {}
@@ -156,6 +162,14 @@ def ingest_event(records: dict, ev: dict, account: str, machine: str,
                         if ext and len(ext) <= 8:
                             rec.file_exts[ext] = rec.file_exts.get(ext, 0) + 1
         rec._last_asst_ts = ev.get("timestamp")
+
+
+def _local_day(ts) -> str:
+    """Local calendar date for a (tz-aware) timestamp; naive is taken as UTC.
+    Same convention as analytics.trends so day buckets line up."""
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts.astimezone().date().isoformat()
 
 
 def is_private_repo(repo: str, private_repos) -> bool:
@@ -210,18 +224,53 @@ PRIVATE_INDEX = "index.private.local.json"
 LEGACY_PRIVATE_INDEX = "index.work.local.json"
 
 
-def write_indexes(records: dict, data_dir: Path, machine: str) -> dict:
+def _read_sessions(path: Path) -> list[dict]:
+    """Sessions list from an index file; missing/unreadable -> []."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8")).get("sessions", [])
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return []
+
+
+def _accumulate(fresh: list[dict], existing: list[dict]) -> tuple[list[dict], int]:
+    """Union fresh records with what the index held last run. A session seen
+    before but no longer on disk (Claude Code's transcript cleanup) is kept
+    and marked retained=True, so the index is the durable record and a purge
+    on disk never erases history. A fresh record always replaces a retained
+    one for the same id."""
+    fresh_ids = {r["session_id"] for r in fresh}
+    retained = []
+    for s in existing:
+        sid = s.get("session_id")
+        if sid and sid not in fresh_ids:
+            s = dict(s)
+            s["retained"] = True
+            retained.append(s)
+    return fresh + retained, len(retained)
+
+
+def write_indexes(records: dict, data_dir: Path, machine: str,
+                  accumulate: bool = True) -> dict:
     """Personal -> <data_dir>/synced/<machine>/index.json (the only thing that
     syncs across machines). Private -> <data_dir>/index.private.local.json
-    (OUTSIDE synced/, so local-only data never enters the synced folder)."""
+    (OUTSIDE synced/, so local-only data never enters the synced folder).
+
+    With accumulate (default), sessions present in the previous index but
+    gone from disk are retained rather than dropped."""
     data_dir = Path(data_dir)
     personal = [r.to_dict() for r in records.values() if not r.walled]
     private = [r.to_dict() for r in records.values() if r.walled]
-    _atomic_write_json(data_dir / "synced" / machine / "index.json",
-                       {"sessions": personal})
+    personal_path = data_dir / "synced" / machine / "index.json"
+    private_path = data_dir / PRIVATE_INDEX
+    retained = 0
+    if accumulate:
+        personal, n1 = _accumulate(personal, _read_sessions(personal_path))
+        private, n2 = _accumulate(private, _read_sessions(private_path))
+        retained = n1 + n2
+    _atomic_write_json(personal_path, {"sessions": personal})
     if private:
-        _atomic_write_json(data_dir / PRIVATE_INDEX, {"sessions": private})
-    return {"personal": len(personal), "private": len(private)}
+        _atomic_write_json(private_path, {"sessions": private})
+    return {"personal": len(personal), "private": len(private), "retained": retained}
 
 
 def read_local_private_index(data_dir: Path) -> list[dict]:

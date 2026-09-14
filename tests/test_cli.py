@@ -80,7 +80,7 @@ def test_run_includes_work_in_report(tmp_path):
     # BOTH appear in the report's accounts (work is viewable, not hidden)
     md = (data / "reports" / "insights.md").read_text()
     assert "work" in md and "personal" in md
-    assert result["counts"] == {"personal": 1, "private": 1}
+    assert result["counts"] == {"personal": 1, "private": 1, "retained": 0}
 
 
 def test_run_attaches_decisions_from_file(tmp_path):
@@ -216,7 +216,7 @@ def test_run_personal_by_default_single_source(tmp_path, monkeypatch):
     cfg = config_mod.normalize_config({"machine": "m", "dataDir": str(tmp_path / "data"),
                                        "decisions": {"source": "none"}, "voice": None})
     result = cli.run(cfg)
-    assert result["counts"] == {"personal": 1, "private": 0}
+    assert result["counts"] == {"personal": 1, "private": 0, "retained": 0}
 
 
 def test_init_writes_advanced_sources(tmp_path, monkeypatch):

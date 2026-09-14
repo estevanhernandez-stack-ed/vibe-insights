@@ -34,7 +34,7 @@ def test_private_source_walls_from_personal(tmp_path):
     counts = scan.write_indexes(records, out, "m")
     personal = json.loads((out / "synced" / "m" / "index.json").read_text())["sessions"]
     private = json.loads((out / "index.private.local.json").read_text())["sessions"]
-    assert counts == {"personal": 1, "private": 1}
+    assert counts == {"personal": 1, "private": 1, "retained": 0}
     assert [s["session_id"] for s in personal] == ["p1"]
     assert all(s["account"] == "personal" for s in personal)
     assert [s["session_id"] for s in private] == ["w1"]
@@ -85,7 +85,7 @@ def test_write_indexes_uses_private_filename(tmp_path):
                    [_assistant("w1", "2026-05-20T10:00:00Z", 1, 1, "C:/w/A")])
     recs = scan.build_records(sources, machine="m")
     counts = scan.write_indexes(recs, tmp_path / "data", "m")
-    assert counts == {"personal": 0, "private": 1}
+    assert counts == {"personal": 0, "private": 1, "retained": 0}
     assert (tmp_path / "data" / "index.private.local.json").exists()
     assert not (tmp_path / "data" / "index.work.local.json").exists()
 
@@ -123,3 +123,61 @@ def test_subagent_tokens_fold_into_parent(tmp_path):
     records = scan.build_records(sources, machine="m")
     assert len(records) == 1                       # subagent folds into parent, not a new session
     assert records["sess"].human_tokens == 110     # (80+8) + (20+2)
+
+
+def test_burn_by_day_spreads_usage_across_active_days(tmp_path):
+    # One session resumed across three months must not book everything to last_ts.
+    lines = [
+        _assistant("long", "2026-06-26T19:00:00Z", 100, 900, "C:/x/app"),
+        _assistant("long", "2026-07-15T10:00:00Z", 10, 40, "C:/x/app"),
+        _assistant("long", "2026-09-14T21:00:00Z", 1, 9, "C:/x/app"),
+    ]
+    _write_session(tmp_path, ".claude", "proj", "long", lines)
+    recs = scan.build_records([{"path": str(tmp_path / ".claude"), "private": False}], machine="m")
+    rec = recs["long"]
+    assert rec.burn_by_day == {"2026-06-26": 1000, "2026-07-15": 50, "2026-09-14": 10}
+    assert sum(rec.burn_by_day.values()) == rec.human_tokens
+    assert rec.to_dict()["burn_by_day"] == rec.burn_by_day
+
+
+def test_write_indexes_accumulates_sessions_gone_from_disk(tmp_path):
+    out = tmp_path / "data"
+    src = [{"path": str(tmp_path / ".claude"), "private": False}]
+    _write_session(tmp_path, ".claude", "proj", "old",
+                   [_assistant("old", "2026-02-01T10:00:00Z", 10, 1, "C:/x/a")])
+    scan.write_indexes(scan.build_records(src, machine="m"), out, "m")
+    # cleanup purges the old transcript; a new session appears
+    (tmp_path / ".claude" / "projects" / "proj" / "old.jsonl").unlink()
+    _write_session(tmp_path, ".claude", "proj", "new",
+                   [_assistant("new", "2026-09-01T10:00:00Z", 20, 2, "C:/x/a")])
+    counts = scan.write_indexes(scan.build_records(src, machine="m"), out, "m")
+    idx = {s["session_id"]: s for s in
+           json.loads((out / "synced" / "m" / "index.json").read_text())["sessions"]}
+    assert set(idx) == {"old", "new"}
+    assert idx["old"]["human_tokens"] == 11 and idx["old"].get("retained") is True
+    assert idx["new"]["human_tokens"] == 22 and not idx["new"].get("retained")
+    assert counts == {"personal": 2, "private": 0, "retained": 1}
+
+
+def test_write_indexes_fresh_record_replaces_retained(tmp_path):
+    out = tmp_path / "data"
+    src = [{"path": str(tmp_path / ".claude"), "private": False}]
+    f = _write_session(tmp_path, ".claude", "proj", "s",
+                       [_assistant("s", "2026-09-01T10:00:00Z", 10, 1, "C:/x/a")])
+    scan.write_indexes(scan.build_records(src, machine="m"), out, "m")
+    f.write_text(f.read_text() + json.dumps(_assistant("s", "2026-09-02T10:00:00Z", 5, 5, "C:/x/a")) + "\n")
+    scan.write_indexes(scan.build_records(src, machine="m"), out, "m")
+    idx = json.loads((out / "synced" / "m" / "index.json").read_text())["sessions"]
+    assert len(idx) == 1 and idx[0]["human_tokens"] == 21 and not idx[0].get("retained")
+
+
+def test_write_indexes_accumulate_off_drops_gone_sessions(tmp_path):
+    out = tmp_path / "data"
+    src = [{"path": str(tmp_path / ".claude"), "private": False}]
+    _write_session(tmp_path, ".claude", "proj", "old",
+                   [_assistant("old", "2026-02-01T10:00:00Z", 10, 1, "C:/x/a")])
+    scan.write_indexes(scan.build_records(src, machine="m"), out, "m")
+    (tmp_path / ".claude" / "projects" / "proj" / "old.jsonl").unlink()
+    scan.write_indexes(scan.build_records(src, machine="m"), out, "m", accumulate=False)
+    idx = json.loads((out / "synced" / "m" / "index.json").read_text())["sessions"]
+    assert idx == []
