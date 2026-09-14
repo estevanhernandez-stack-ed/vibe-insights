@@ -46,8 +46,17 @@ def token_cost(sessions: list[dict]) -> dict:
 
 
 def trends(sessions: list[dict]) -> dict:
+    # Burn is attributed to the days a session was active (burn_by_day, from
+    # per-message timestamps). Records without it (older indexes) fall back to
+    # booking everything at last_ts. "sessions" counts sessions active that day.
     by_day: dict = defaultdict(lambda: {"sessions": 0, "burn": 0})
     for s in sessions:
+        spread = s.get("burn_by_day") or {}
+        if spread:
+            for d, b in spread.items():
+                by_day[d]["sessions"] += 1
+                by_day[d]["burn"] += int(b or 0)
+            continue
         ts = _parse(s.get("last_ts"))
         if not ts:
             continue

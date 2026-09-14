@@ -21,11 +21,12 @@ from . import tagging as tagging_mod
 DEFAULT_CONFIG = Path.home() / ".vibe-insights" / "config.json"
 
 
-def run(cfg: dict, repo_filter: str | None = None) -> dict:
+def run(cfg: dict, repo_filter: str | None = None, accumulate: bool = True) -> dict:
     machine = cfg["machine"]
     records = scan_mod.build_records(cfg["sources"], machine=machine,
                                      private_repos=cfg.get("private_repos", []))
-    counts = scan_mod.write_indexes(records, cfg["dataDir"], machine)
+    counts = scan_mod.write_indexes(records, cfg["dataDir"], machine,
+                                    accumulate=accumulate)
     merged = merge_mod.load_merged(Path(cfg["dataDir"]) / "synced")
     private_local = scan_mod.read_local_private_index(cfg["dataDir"])
     report_set = merged + private_local
@@ -66,6 +67,8 @@ def main(argv=None) -> int:
                         help="discover sources and write config.json for review")
     parser.add_argument("--rediscover", action="store_true",
                         help="with --init: re-scan sources from scratch, discarding per-source private flags")
+    parser.add_argument("--rebuild-index", action="store_true",
+                        help="drop sessions retained from earlier scans; index only what is on disk now")
     parser.add_argument("--render-only", action="store_true",
                         help="re-render reports from existing index + digest + narrative, no re-scan")
     parser.add_argument("--emit-tagging-input", action="store_true",
@@ -190,13 +193,15 @@ def main(argv=None) -> int:
         return 1
 
     cfg = config_mod.load_config(config_path)
-    result = run(cfg, repo_filter=args.repo)
+    result = run(cfg, repo_filter=args.repo, accumulate=not args.rebuild_index)
     c = result["counts"]
     if args.repo:
         print(f"Scoped to repo: {args.repo}")
     print(f"Indexed {c['personal']} personal"
           + (f" + {c['private']} private (local-only)" if c.get("private") else "")
-          + f" sessions on {cfg['machine']}.")
+          + f" sessions on {cfg['machine']}"
+          + (f" ({c['retained']} retained from earlier scans, no longer on disk)" if c.get("retained") else "")
+          + ".")
     print(f"Report covers {result['merged_sessions']} sessions across machines "
           f"(personal merged + this machine's private).")
     print(f"Report: {result['reports']['html']}")
